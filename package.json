@@ -1,0 +1,30 @@
+{
+  "name": "soroban-render",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A community convention and library for self-contained, renderable Soroban dApps",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wyhaines/soroban-render.git"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter demo dev",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean",
+    "contract:build": "cd contracts/todo && cargo build --release --target wasm32-unknown-unknown",
+    "contract:deploy": "stellar contract deploy --wasm contracts/todo/target/wasm32-unknown-unknown/release/soroban_render_todo.wasm --source alice --network local",
+    "docker:start": "docker compose up -d",
+    "docker:stop": "docker compose down"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

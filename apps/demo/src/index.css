@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+/* Soroban Render view styles */
+.soroban-render-view h1 {
+  @apply text-3xl font-bold mb-4 pb-2 border-b border-gray-200;
+}
+
+.soroban-render-view h2 {
+  @apply text-2xl font-semibold mt-6 mb-3;
+}
+
+.soroban-render-view h3 {
+  @apply text-xl font-semibold mt-4 mb-2;
+}
+
+.soroban-render-view p {
+  @apply my-2;
+}
+
+.soroban-render-view ul, .soroban-render-view ol {
+  @apply my-2 pl-6;
+}
+
+.soroban-render-view li {
+  @apply my-1;
+}
+
+.soroban-render-view code {
+  @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.soroban-render-view pre {
+  @apply bg-gray-100 p-4 rounded overflow-x-auto my-4;
+}
+
+.soroban-render-view pre code {
+  @apply bg-transparent p-0;
+}
+
+.soroban-render-view blockquote {
+  @apply border-l-4 border-gray-300 pl-4 my-4 text-gray-600 italic;
+}
+
+.soroban-render-view a {
+  @apply text-blue-600 hover:underline;
+}
+
+.soroban-render-view table {
+  @apply w-full border-collapse my-4;
+}
+
+.soroban-render-view th, .soroban-render-view td {
+  @apply border border-gray-300 px-4 py-2 text-left;
+}
+
+.soroban-render-view th {
+  @apply bg-gray-50 font-semibold;
+}
+
+.soroban-render-view hr {
+  @apply border-t border-gray-200 my-6;
+}
+
+.soroban-render-view img {
+  @apply max-w-full h-auto rounded;
+}

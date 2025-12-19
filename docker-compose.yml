@@ -1,0 +1,19 @@
+services:
+  stellar:
+    image: stellar/quickstart:latest
+    container_name: stellar-local
+    ports:
+      - "8000:8000"
+    command:
+      - --standalone
+      - --enable-soroban-rpc
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - stellar-data:/opt/stellar
+
+volumes:
+  stellar-data:
