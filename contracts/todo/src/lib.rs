@@ -7,12 +7,15 @@ use soroban_sdk::{
 contractmeta!(key = "render", val = "v1");
 contractmeta!(key = "render_formats", val = "markdown,json");
 
-// Storage keys are now per-user using DataKey enum
+// Storage keys
 #[contracttype]
 #[derive(Clone)]
 pub enum DataKey {
     Tasks(Address),  // Map<u32, Task> for each user
     NextId(Address), // Next task ID for each user
+    UserCount,       // Total unique users
+    TotalTasks,      // Total tasks across all users
+    HasTasks(Address), // Whether a user has ever had tasks (for counting unique users)
 }
 
 #[contracttype]
@@ -39,6 +42,7 @@ impl TodoContract {
 
         let tasks_key = DataKey::Tasks(caller.clone());
         let next_id_key = DataKey::NextId(caller.clone());
+        let has_tasks_key = DataKey::HasTasks(caller.clone());
 
         let mut tasks: Map<u32, Task> = env
             .storage()
@@ -58,6 +62,18 @@ impl TodoContract {
         tasks.set(next_id, task);
         env.storage().persistent().set(&tasks_key, &tasks);
         env.storage().persistent().set(&next_id_key, &(next_id + 1));
+
+        // Update global stats
+        let total_tasks: u32 = env.storage().persistent().get(&DataKey::TotalTasks).unwrap_or(0);
+        env.storage().persistent().set(&DataKey::TotalTasks, &(total_tasks + 1));
+
+        // Track unique users
+        let user_has_tasks: bool = env.storage().persistent().get(&has_tasks_key).unwrap_or(false);
+        if !user_has_tasks {
+            env.storage().persistent().set(&has_tasks_key, &true);
+            let user_count: u32 = env.storage().persistent().get(&DataKey::UserCount).unwrap_or(0);
+            env.storage().persistent().set(&DataKey::UserCount, &(user_count + 1));
+        }
 
         next_id
     }
@@ -89,8 +105,24 @@ impl TodoContract {
             .get(&tasks_key)
             .unwrap_or(Map::new(&env));
 
-        tasks.remove(id);
-        env.storage().persistent().set(&tasks_key, &tasks);
+        // Only decrement if task exists
+        if tasks.get(id).is_some() {
+            tasks.remove(id);
+            env.storage().persistent().set(&tasks_key, &tasks);
+
+            // Decrement global task count
+            let total_tasks: u32 = env.storage().persistent().get(&DataKey::TotalTasks).unwrap_or(0);
+            if total_tasks > 0 {
+                env.storage().persistent().set(&DataKey::TotalTasks, &(total_tasks - 1));
+            }
+        }
+    }
+
+    /// Get global stats
+    pub fn get_stats(env: Env) -> (u32, u32) {
+        let total_tasks: u32 = env.storage().persistent().get(&DataKey::TotalTasks).unwrap_or(0);
+        let user_count: u32 = env.storage().persistent().get(&DataKey::UserCount).unwrap_or(0);
+        (total_tasks, user_count)
     }
 
     /// Get tasks for a specific user
@@ -133,92 +165,183 @@ impl TodoContract {
             Map::new(&env)
         };
 
-        // Check if JSON format is requested via /json prefix
-        if let Some(ref p) = path {
-            let path_bytes = Self::string_to_bytes(&env, p);
-            let json_prefix = Bytes::from_slice(&env, b"/json");
+        // Route based on path
+        let path_bytes = if let Some(ref p) = path {
+            Self::string_to_bytes(&env, p)
+        } else {
+            Bytes::from_slice(&env, b"/")
+        };
 
-            // Check for /json prefix
-            if path_bytes.len() >= 5 {
-                let mut is_json = true;
-                for i in 0..5u32 {
-                    if path_bytes.get(i) != json_prefix.get(i) {
-                        is_json = false;
-                        break;
-                    }
+        // Check routes
+        let home_bytes = Bytes::from_slice(&env, b"/");
+        let tasks_bytes = Bytes::from_slice(&env, b"/tasks");
+        let about_bytes = Bytes::from_slice(&env, b"/about");
+        let pending_bytes = Bytes::from_slice(&env, b"/pending");
+        let completed_bytes = Bytes::from_slice(&env, b"/completed");
+        let json_prefix = Bytes::from_slice(&env, b"/json");
+
+        // Check for /json prefix
+        if path_bytes.len() >= 5 {
+            let mut is_json = true;
+            for i in 0..5u32 {
+                if path_bytes.get(i) != json_prefix.get(i) {
+                    is_json = false;
+                    break;
                 }
+            }
 
-                if is_json {
-                    // Extract subpath after /json (e.g., /json/pending -> /pending)
-                    let subpath = if path_bytes.len() > 5 {
-                        let mut sub = Bytes::new(&env);
-                        for i in 5..path_bytes.len() {
-                            if let Some(b) = path_bytes.get(i) {
-                                sub.push_back(b);
-                            }
+            if is_json {
+                let subpath = if path_bytes.len() > 5 {
+                    let mut sub = Bytes::new(&env);
+                    for i in 5..path_bytes.len() {
+                        if let Some(b) = path_bytes.get(i) {
+                            sub.push_back(b);
                         }
-                        Some(sub)
-                    } else {
-                        None
-                    };
-
-                    return Self::render_json(&env, &tasks, subpath, viewer.is_some());
-                }
+                    }
+                    Some(sub)
+                } else {
+                    None
+                };
+                return Self::render_json(&env, &tasks, subpath, viewer.is_some());
             }
         }
 
-        // Standard markdown rendering
-        let filter = if let Some(ref p) = path {
-            let path_bytes = Self::string_to_bytes(&env, p);
-            let pending_bytes = Bytes::from_slice(&env, b"/pending");
-            let completed_bytes = Bytes::from_slice(&env, b"/completed");
-
-            if path_bytes == pending_bytes {
+        // Route to appropriate page
+        if path_bytes == home_bytes {
+            return Self::render_home(&env, viewer.is_some());
+        } else if path_bytes == about_bytes {
+            return Self::render_about(&env);
+        } else if path_bytes == tasks_bytes || path_bytes == pending_bytes || path_bytes == completed_bytes {
+            let filter = if path_bytes == pending_bytes {
                 Some(false)
             } else if path_bytes == completed_bytes {
                 Some(true)
             } else {
-                let path_len = p.len() as usize;
-                if path_len > 6 {
-                    let prefix = String::from_str(&env, "/task/");
-                    let prefix_bytes = Self::string_to_bytes(&env, &prefix);
+                None
+            };
+            return Self::render_task_list(&env, &tasks, filter, viewer.is_some());
+        }
 
-                    let mut matches = true;
-                    for i in 0..6 {
-                        if path_bytes.get(i as u32) != prefix_bytes.get(i as u32) {
-                            matches = false;
-                            break;
-                        }
-                    }
-
-                    if matches {
-                        if let Some(id_byte) = path_bytes.get(6) {
-                            if id_byte >= b'0' && id_byte <= b'9' {
-                                let id = (id_byte - b'0') as u32;
-                                return Self::render_single_task(&env, &tasks, id);
-                            }
-                        }
+        // Check for /task/:id pattern
+        let task_prefix = Bytes::from_slice(&env, b"/task/");
+        if path_bytes.len() > 6 {
+            let mut matches = true;
+            for i in 0..6u32 {
+                if path_bytes.get(i) != task_prefix.get(i) {
+                    matches = false;
+                    break;
+                }
+            }
+            if matches {
+                if let Some(id_byte) = path_bytes.get(6) {
+                    if id_byte >= b'0' && id_byte <= b'9' {
+                        let id = (id_byte - b'0') as u32;
+                        return Self::render_single_task(&env, &tasks, id);
                     }
                 }
-                None
             }
-        } else {
-            None
-        };
+        }
 
-        Self::render_task_list(&env, &tasks, filter, viewer.is_some())
+        // Default to home
+        Self::render_home(&env, viewer.is_some())
+    }
+
+    fn render_home(env: &Env, wallet_connected: bool) -> Bytes {
+        let mut parts: Vec<Bytes> = Vec::new(env);
+
+        // Header from theme contract
+        parts.push_back(Bytes::from_slice(env, b"{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"header\"}}\n"));
+
+        // Navigation
+        parts.push_back(Bytes::from_slice(env, b"[Home](render:/) | [Tasks](render:/tasks) | [About](render:/about)\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"---\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"## Welcome to the Soroban Render Demo\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"This is a **fully functional todo application** where the entire user interface is defined by the smart contract itself.\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"### What makes this special?\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"- **Self-contained UI**: The contract's `render()` function returns this markdown you're reading\n"));
+        parts.push_back(Bytes::from_slice(env, b"- **Interactive elements**: Forms and buttons trigger real blockchain transactions\n"));
+        parts.push_back(Bytes::from_slice(env, b"- **Per-user storage**: Each wallet has its own private task list\n"));
+        parts.push_back(Bytes::from_slice(env, b"- **Composability**: This app includes header/footer components from a separate theme contract\n\n"));
+
+        if wallet_connected {
+            parts.push_back(Bytes::from_slice(env, b"### Get Started\n\n"));
+            parts.push_back(Bytes::from_slice(env, b"Your wallet is connected! Head over to [Tasks](render:/tasks) to manage your todo list.\n\n"));
+        } else {
+            parts.push_back(Bytes::from_slice(env, b"### Get Started\n\n"));
+            parts.push_back(Bytes::from_slice(env, b"**Connect your wallet** (button in top-right) to create and manage your personal todo list.\n\n"));
+        }
+
+        // Footer from theme contract
+        parts.push_back(Bytes::from_slice(env, b"{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"footer\"}}"));
+
+        Self::concat_bytes(env, &parts)
+    }
+
+    fn render_about(env: &Env) -> Bytes {
+        let mut parts: Vec<Bytes> = Vec::new(env);
+
+        // Header from theme contract
+        parts.push_back(Bytes::from_slice(env, b"{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"header\"}}\n"));
+
+        // Navigation
+        parts.push_back(Bytes::from_slice(env, b"[Home](render:/) | [Tasks](render:/tasks) | [About](render:/about)\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"---\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"## About Soroban Render\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"Soroban Render is a community convention for building **self-contained, renderable dApps** on Stellar's Soroban smart contract platform.\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"### The Concept\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"Inspired by [Gno.land's Render() function](https://docs.gno.land/concepts/realms#render), Soroban Render allows smart contracts to define their own user interface. The contract returns markdown (or JSON) that describes the UI, and a generic viewer renders it.\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"### How It Works\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"1. Contract implements `render(path, viewer) -> Bytes`\n"));
+        parts.push_back(Bytes::from_slice(env, b"2. Returns markdown with special protocols: `render:`, `tx:`, `form:`\n"));
+        parts.push_back(Bytes::from_slice(env, b"3. Viewer fetches and displays the UI\n"));
+        parts.push_back(Bytes::from_slice(env, b"4. User interactions trigger contract calls\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"### This Demo\n\n"));
+
+        // Get stats
+        let total_tasks: u32 = env.storage().persistent().get(&DataKey::TotalTasks).unwrap_or(0);
+        let user_count: u32 = env.storage().persistent().get(&DataKey::UserCount).unwrap_or(0);
+
+        parts.push_back(Bytes::from_slice(env, b"This contract currently stores **"));
+        parts.push_back(Self::u32_to_bytes(env, total_tasks));
+        parts.push_back(Bytes::from_slice(env, b" tasks** across **"));
+        parts.push_back(Self::u32_to_bytes(env, user_count));
+        parts.push_back(Bytes::from_slice(env, b" unique users**.\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"### Learn More\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"- [View the source code on GitHub](https://github.com/wyhaines/soroban-render)\n"));
+        parts.push_back(Bytes::from_slice(env, b"- [Soroban Documentation](https://soroban.stellar.org/docs)\n"));
+        parts.push_back(Bytes::from_slice(env, b"- [Stellar Developer Portal](https://developers.stellar.org)\n\n"));
+
+        // Footer from theme contract
+        parts.push_back(Bytes::from_slice(env, b"{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"footer\"}}"));
+
+        Self::concat_bytes(env, &parts)
     }
 
     fn render_task_list(env: &Env, tasks: &Map<u32, Task>, filter: Option<bool>, wallet_connected: bool) -> Bytes {
         let mut parts: Vec<Bytes> = Vec::new(env);
 
-        // Use cross-contract include for header from theme contract
-        // This demonstrates composability: including components from another contract
-        // Testnet theme contract: CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD
+        // Header from theme contract
         parts.push_back(Bytes::from_slice(env, b"{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"header\"}}\n"));
 
-        // Use theme contract's navigation component
-        parts.push_back(Bytes::from_slice(env, b"{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"nav\"}}\n"));
+        // Navigation
+        parts.push_back(Bytes::from_slice(env, b"[Home](render:/) | [Tasks](render:/tasks) | [About](render:/about)\n\n"));
+
+        parts.push_back(Bytes::from_slice(env, b"---\n\n"));
 
         // Check if wallet is connected
         if !wallet_connected {
@@ -623,17 +746,43 @@ mod test {
     }
 
     #[test]
-    fn test_render_without_wallet() {
+    fn test_render_home_without_wallet() {
         let env = Env::default();
         env.mock_all_auths();
 
         let contract_id = env.register(TodoContract, ());
         let client = TodoContractClient::new(&env, &contract_id);
 
-        // Render without viewer - should show "connect wallet" message
+        // Render home page without viewer
         let output = client.render(&None, &None);
 
-        let mut bytes_vec: [u8; 1024] = [0; 1024];
+        let mut bytes_vec: [u8; 2048] = [0; 2048];
+        let len = output.len() as usize;
+        for i in 0..len {
+            if let Some(b) = output.get(i as u32) {
+                bytes_vec[i] = b;
+            }
+        }
+        let output_str = core::str::from_utf8(&bytes_vec[..len]).unwrap();
+
+        // Check for home page content
+        assert!(output_str.contains("Welcome to the Soroban Render Demo"));
+        assert!(output_str.contains("Connect your wallet"));
+    }
+
+    #[test]
+    fn test_render_tasks_without_wallet() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register(TodoContract, ());
+        let client = TodoContractClient::new(&env, &contract_id);
+
+        // Render tasks page without viewer - should show "connect wallet" message
+        let tasks_path = String::from_str(&env, "/tasks");
+        let output = client.render(&Some(tasks_path), &None);
+
+        let mut bytes_vec: [u8; 2048] = [0; 2048];
         let len = output.len() as usize;
         for i in 0..len {
             if let Some(b) = output.get(i as u32) {
@@ -647,7 +796,7 @@ mod test {
     }
 
     #[test]
-    fn test_render_with_wallet() {
+    fn test_render_tasks_with_wallet() {
         let env = Env::default();
         env.mock_all_auths();
 
@@ -659,8 +808,9 @@ mod test {
         client.add_task(&String::from_str(&env, "First task"), &user);
         client.add_task(&String::from_str(&env, "Second task"), &user);
 
-        // Render with viewer - should show tasks
-        let output = client.render(&None, &Some(user));
+        // Render tasks page with viewer - should show tasks
+        let tasks_path = String::from_str(&env, "/tasks");
+        let output = client.render(&Some(tasks_path), &Some(user));
 
         let mut bytes_vec: [u8; 2048] = [0; 2048];
         let len = output.len() as usize;
@@ -678,6 +828,39 @@ mod test {
         assert!(output_str.contains("First task"));
         assert!(output_str.contains("Second task"));
         assert!(output_str.contains("Your Tasks"));
+    }
+
+    #[test]
+    fn test_render_about() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register(TodoContract, ());
+        let client = TodoContractClient::new(&env, &contract_id);
+
+        let user = Address::generate(&env);
+
+        // Add some tasks to generate stats
+        client.add_task(&String::from_str(&env, "Task 1"), &user);
+        client.add_task(&String::from_str(&env, "Task 2"), &user);
+
+        // Render about page
+        let about_path = String::from_str(&env, "/about");
+        let output = client.render(&Some(about_path), &None);
+
+        let mut bytes_vec: [u8; 2048] = [0; 2048];
+        let len = output.len() as usize;
+        for i in 0..len {
+            if let Some(b) = output.get(i as u32) {
+                bytes_vec[i] = b;
+            }
+        }
+        let output_str = core::str::from_utf8(&bytes_vec[..len]).unwrap();
+
+        // Check for about page content
+        assert!(output_str.contains("About Soroban Render"));
+        assert!(output_str.contains("2 tasks"));
+        assert!(output_str.contains("1 unique users"));
     }
 
     #[test]
