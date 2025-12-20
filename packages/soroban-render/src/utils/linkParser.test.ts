@@ -107,6 +107,84 @@ describe("parseLink", () => {
 
       expect(result.method).toBe("method_name");
     });
+
+    describe("with .send= parameter", () => {
+      it("should parse tx with .send parameter only", () => {
+        const result = parseLink("tx:donate .send=1000000");
+
+        expect(result.protocol).toBe("tx");
+        expect(result.method).toBe("donate");
+        expect(result.args).toEqual({});
+        expect(result.sendAmount).toBe("1000000");
+      });
+
+      it("should parse tx with args and .send parameter", () => {
+        const result = parseLink('tx:purchase {"item_id":42} .send=5000000');
+
+        expect(result.protocol).toBe("tx");
+        expect(result.method).toBe("purchase");
+        expect(result.args).toEqual({ item_id: 42 });
+        expect(result.sendAmount).toBe("5000000");
+      });
+
+      it("should parse tx with complex args and .send", () => {
+        const result = parseLink('tx:transfer {"to":"GA...","memo":"test"} .send=10000000');
+
+        expect(result.protocol).toBe("tx");
+        expect(result.method).toBe("transfer");
+        expect(result.args).toEqual({ to: "GA...", memo: "test" });
+        expect(result.sendAmount).toBe("10000000");
+      });
+
+      it("should handle tx without .send (backward compatibility)", () => {
+        const result = parseLink('tx:add_task {"name":"Test"}');
+
+        expect(result.sendAmount).toBeUndefined();
+      });
+
+      it("should handle .send with large amount (10 XLM = 100000000 stroops)", () => {
+        const result = parseLink("tx:donate .send=100000000");
+
+        expect(result.sendAmount).toBe("100000000");
+      });
+    });
+
+    describe("with user-settable parameters", () => {
+      it("should detect empty string as user-settable param", () => {
+        const result = parseLink('tx:post {"message":""}');
+
+        expect(result.protocol).toBe("tx");
+        expect(result.method).toBe("post");
+        expect(result.args).toEqual({ message: "" });
+        expect(result.userSettableParams).toEqual(["message"]);
+      });
+
+      it("should detect multiple empty params", () => {
+        const result = parseLink('tx:transfer {"to":"","amount":""}');
+
+        expect(result.userSettableParams).toEqual(["to", "amount"]);
+      });
+
+      it("should detect mixed filled and empty params", () => {
+        const result = parseLink('tx:update {"id":1,"name":""}');
+
+        expect(result.args).toEqual({ id: 1, name: "" });
+        expect(result.userSettableParams).toEqual(["name"]);
+      });
+
+      it("should not set userSettableParams when all params have values", () => {
+        const result = parseLink('tx:update {"id":1,"name":"test"}');
+
+        expect(result.userSettableParams).toBeUndefined();
+      });
+
+      it("should handle user-settable params with .send", () => {
+        const result = parseLink('tx:donate {"message":""} .send=1000000');
+
+        expect(result.userSettableParams).toEqual(["message"]);
+        expect(result.sendAmount).toBe("1000000");
+      });
+    });
   });
 
   describe("form: protocol", () => {

@@ -182,6 +182,197 @@ describe("parseMarkdown", () => {
       expect(html).toContain("<td>");
     });
   });
+
+  describe("alerts/callouts", () => {
+    it("should convert NOTE alert", async () => {
+      const html = await parseMarkdown("> [!NOTE]\n> This is a note");
+      expect(html).toContain('class="soroban-alert soroban-alert-note"');
+      expect(html).toContain('class="soroban-alert-title"');
+      expect(html).toContain("NOTE");
+      expect(html).toContain("This is a note");
+    });
+
+    it("should convert WARNING alert", async () => {
+      const html = await parseMarkdown("> [!WARNING]\n> Be careful");
+      expect(html).toContain('class="soroban-alert soroban-alert-warning"');
+      expect(html).toContain("WARNING");
+      expect(html).toContain("Be careful");
+    });
+
+    it("should convert TIP alert", async () => {
+      const html = await parseMarkdown("> [!TIP]\n> Here is a tip");
+      expect(html).toContain('class="soroban-alert soroban-alert-tip"');
+      expect(html).toContain("TIP");
+      expect(html).toContain("Here is a tip");
+    });
+
+    it("should convert INFO alert", async () => {
+      const html = await parseMarkdown("> [!INFO]\n> Additional info");
+      expect(html).toContain('class="soroban-alert soroban-alert-info"');
+      expect(html).toContain("INFO");
+      expect(html).toContain("Additional info");
+    });
+
+    it("should convert CAUTION alert", async () => {
+      const html = await parseMarkdown("> [!CAUTION]\n> This cannot be undone");
+      expect(html).toContain('class="soroban-alert soroban-alert-caution"');
+      expect(html).toContain("CAUTION");
+      expect(html).toContain("This cannot be undone");
+    });
+
+    it("should handle alert with markdown content", async () => {
+      const html = await parseMarkdown("> [!NOTE]\n> This is **bold** and *italic*");
+      expect(html).toContain('class="soroban-alert soroban-alert-note"');
+      expect(html).toContain("<strong>bold</strong>");
+      expect(html).toContain("<em>italic</em>");
+    });
+
+    it("should handle multiple alerts", async () => {
+      const html = await parseMarkdown(
+        "> [!NOTE]\n> First note\n\n> [!WARNING]\n> A warning"
+      );
+      expect(html).toContain("soroban-alert-note");
+      expect(html).toContain("soroban-alert-warning");
+      expect(html).toContain("First note");
+      expect(html).toContain("A warning");
+    });
+
+    it("should preserve regular blockquotes", async () => {
+      const html = await parseMarkdown("> Regular quote without alert syntax");
+      expect(html).toContain("<blockquote>");
+      expect(html).toContain("Regular quote");
+      expect(html).not.toContain("soroban-alert");
+    });
+
+    it("should handle case-insensitive alert types", async () => {
+      const html = await parseMarkdown("> [!note]\n> Lowercase note");
+      expect(html).toContain('class="soroban-alert soroban-alert-note"');
+      expect(html).toContain("NOTE"); // Title should be uppercase
+    });
+
+    it("should handle alert with multiline content", async () => {
+      const html = await parseMarkdown(
+        "> [!TIP]\n> First line\n> Second line\n> Third line"
+      );
+      expect(html).toContain("soroban-alert-tip");
+      expect(html).toContain("First line");
+      expect(html).toContain("Second line");
+      expect(html).toContain("Third line");
+    });
+
+    it("should handle alert with links", async () => {
+      const html = await parseMarkdown(
+        "> [!INFO]\n> Check [the docs](https://example.com)"
+      );
+      expect(html).toContain("soroban-alert-info");
+      expect(html).toContain('href="https://example.com"');
+      expect(html).toContain("the docs");
+    });
+  });
+
+  describe("multi-column layouts", () => {
+    it("should convert two-column layout", async () => {
+      const html = await parseMarkdown(
+        ":::columns\nFirst column\n|||\nSecond column\n:::"
+      );
+      expect(html).toContain('class="soroban-columns soroban-columns-2"');
+      expect(html).toContain('class="soroban-column"');
+      expect(html).toContain("First column");
+      expect(html).toContain("Second column");
+    });
+
+    it("should convert three-column layout", async () => {
+      const html = await parseMarkdown(
+        ":::columns\nCol 1\n|||\nCol 2\n|||\nCol 3\n:::"
+      );
+      expect(html).toContain('class="soroban-columns soroban-columns-3"');
+      const columnMatches = html.match(/class="soroban-column"/g);
+      expect(columnMatches).toHaveLength(3);
+    });
+
+    it("should convert four-column layout", async () => {
+      const html = await parseMarkdown(
+        ":::columns\nA\n|||\nB\n|||\nC\n|||\nD\n:::"
+      );
+      expect(html).toContain('class="soroban-columns soroban-columns-4"');
+      const columnMatches = html.match(/class="soroban-column"/g);
+      expect(columnMatches).toHaveLength(4);
+    });
+
+    it("should process markdown inside columns", async () => {
+      const html = await parseMarkdown(
+        ":::columns\n**Bold text**\n|||\n*Italic text*\n:::"
+      );
+      expect(html).toContain("<strong>Bold text</strong>");
+      expect(html).toContain("<em>Italic text</em>");
+    });
+
+    it("should handle lists inside columns", async () => {
+      const html = await parseMarkdown(
+        ":::columns\n- Item 1\n- Item 2\n|||\n1. First\n2. Second\n:::"
+      );
+      expect(html).toContain("<ul>");
+      expect(html).toContain("<ol>");
+      expect(html).toContain("Item 1");
+      expect(html).toContain("First");
+    });
+
+    it("should handle headings inside columns", async () => {
+      const html = await parseMarkdown(
+        ":::columns\n## Heading A\nContent A\n|||\n## Heading B\nContent B\n:::"
+      );
+      expect(html).toContain("<h2>");
+      expect(html).toContain("Heading A");
+      expect(html).toContain("Heading B");
+    });
+
+    it("should handle code blocks inside columns", async () => {
+      const html = await parseMarkdown(
+        ":::columns\n```\ncode here\n```\n|||\nRegular text\n:::"
+      );
+      expect(html).toContain("<pre>");
+      expect(html).toContain("<code>");
+      expect(html).toContain("code here");
+    });
+
+    it("should handle links inside columns", async () => {
+      const html = await parseMarkdown(
+        ":::columns\n[Link](https://example.com)\n|||\n[Action](render:/path)\n:::"
+      );
+      expect(html).toContain('href="https://example.com"');
+      expect(html).toContain('data-action="render:/path"');
+    });
+
+    it("should handle multiple column blocks", async () => {
+      const html = await parseMarkdown(
+        ":::columns\nFirst block col 1\n|||\nFirst block col 2\n:::\n\nSome text between\n\n:::columns\nSecond block col 1\n|||\nSecond block col 2\n:::"
+      );
+      const columnsMatches = html.match(/class="soroban-columns/g);
+      expect(columnsMatches).toHaveLength(2);
+      expect(html).toContain("First block col 1");
+      expect(html).toContain("Second block col 1");
+      expect(html).toContain("Some text between");
+    });
+
+    it("should handle single column", async () => {
+      const html = await parseMarkdown(
+        ":::columns\nJust one column\n:::"
+      );
+      expect(html).toContain('class="soroban-columns soroban-columns-1"');
+      expect(html).toContain("Just one column");
+    });
+
+    it("should preserve content outside columns", async () => {
+      const html = await parseMarkdown(
+        "# Title\n\n:::columns\nCol A\n|||\nCol B\n:::\n\n## Footer"
+      );
+      expect(html).toContain("<h1>");
+      expect(html).toContain("Title");
+      expect(html).toContain("soroban-columns");
+      expect(html).toContain("<h2>");
+      expect(html).toContain("Footer");
+    });
+  });
 });
 
 describe("detectFormat", () => {

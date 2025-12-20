@@ -13,8 +13,10 @@ import {
   ContainerComponent,
   FormField,
   TaskAction,
+  ChartComponent,
 } from "../parsers/json";
 import { parseMarkdown } from "../parsers/markdown";
+import { PieChart, GaugeChart, BarChart } from "./charts";
 
 export interface JsonRenderViewProps {
   document: JsonUIDocument;
@@ -125,6 +127,8 @@ function ComponentRenderer({
           [Include: {component.contract}]
         </div>
       );
+    case "chart":
+      return <ChartRenderer component={component} />;
     default:
       return null;
   }
@@ -486,6 +490,26 @@ function ContainerRenderer({
   );
 }
 
+function ChartRenderer({ component }: { component: ChartComponent }): React.ReactElement {
+  switch (component.chartType) {
+    case "pie":
+      return <PieChart data={component.data} title={component.title} />;
+    case "gauge":
+      return (
+        <GaugeChart
+          value={component.value}
+          max={component.max}
+          label={component.label}
+          color={component.color}
+        />
+      );
+    case "bar":
+      return <BarChart data={component.data} title={component.title} />;
+    default:
+      return <div>Unknown chart type</div>;
+  }
+}
+
 export const jsonStyles = `
 .soroban-render-json {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -655,5 +679,12 @@ export const jsonStyles = `
   border-radius: 4px;
   color: #666;
   font-style: italic;
+}
+
+.soroban-chart {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #fafafa;
+  border-radius: 8px;
 }
 `;

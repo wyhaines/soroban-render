@@ -45,7 +45,8 @@ export type JsonComponent =
   | TaskComponent
   | NavigationComponent
   | ContainerComponent
-  | IncludeComponent;
+  | IncludeComponent
+  | ChartComponent;
 
 export interface HeadingComponent {
   type: "heading";
@@ -145,6 +146,38 @@ export interface IncludeComponent {
   path?: string;
 }
 
+// Chart components for data visualization
+export interface ChartDataPoint {
+  label: string;
+  value: number;
+  color?: string;
+}
+
+export interface PieChartComponent {
+  type: "chart";
+  chartType: "pie";
+  data: ChartDataPoint[];
+  title?: string;
+}
+
+export interface GaugeChartComponent {
+  type: "chart";
+  chartType: "gauge";
+  value: number;
+  max: number;
+  label?: string;
+  color?: string;
+}
+
+export interface BarChartComponent {
+  type: "chart";
+  chartType: "bar";
+  data: ChartDataPoint[];
+  title?: string;
+}
+
+export type ChartComponent = PieChartComponent | GaugeChartComponent | BarChartComponent;
+
 export interface ParseJsonResult {
   success: boolean;
   document?: JsonUIDocument;
@@ -212,6 +245,7 @@ const VALID_COMPONENT_TYPES = [
   "navigation",
   "container",
   "include",
+  "chart",
 ];
 
 function validateComponents(components: unknown[]): string | null {
@@ -305,6 +339,25 @@ function validateComponents(components: unknown[]): string | null {
       case "include":
         if (typeof component.contract !== "string") {
           return `Include at index ${i} is missing 'contract' field`;
+        }
+        break;
+
+      case "chart":
+        if (!["pie", "gauge", "bar"].includes(component.chartType as string)) {
+          return `Chart at index ${i} has invalid 'chartType' (must be 'pie', 'gauge', or 'bar')`;
+        }
+        if (component.chartType === "gauge") {
+          if (typeof component.value !== "number") {
+            return `Gauge chart at index ${i} is missing 'value' field`;
+          }
+          if (typeof component.max !== "number") {
+            return `Gauge chart at index ${i} is missing 'max' field`;
+          }
+        } else {
+          // pie or bar
+          if (!Array.isArray(component.data)) {
+            return `${component.chartType} chart at index ${i} is missing 'data' array`;
+          }
         }
         break;
     }

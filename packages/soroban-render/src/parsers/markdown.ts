@@ -43,7 +43,82 @@ function convertCustomProtocolHrefs(html: string): string {
   );
 }
 
-export async function parseMarkdown(markdown: string): Promise<string> {
+const ALERT_TYPES = ["NOTE", "WARNING", "TIP", "INFO", "CAUTION"] as const;
+
+// Placeholder for column content during processing
+const COLUMN_PLACEHOLDER_PREFIX = "<!--SOROBAN_COLUMN_";
+const COLUMN_PLACEHOLDER_SUFFIX = "-->";
+
+interface ColumnBlock {
+  placeholder: string;
+  columns: string[];
+}
+
+function extractColumnBlocks(markdown: string): { markdown: string; blocks: ColumnBlock[] } {
+  const blocks: ColumnBlock[] = [];
+  let blockIndex = 0;
+
+  const processed = markdown.replace(
+    /:::columns\s*\n([\s\S]*?)\n:::/g,
+    (_, content) => {
+      const columns = content.split(/\n\|\|\|\n/).map((col: string) => col.trim());
+      const placeholder = `${COLUMN_PLACEHOLDER_PREFIX}${blockIndex}${COLUMN_PLACEHOLDER_SUFFIX}`;
+      blocks.push({ placeholder, columns });
+      blockIndex++;
+      return placeholder;
+    }
+  );
+
+  return { markdown: processed, blocks };
+}
+
+async function processColumnBlocks(
+  html: string,
+  blocks: ColumnBlock[],
+  processMarkdown: (md: string) => Promise<string>
+): Promise<string> {
+  let result = html;
+
+  for (const block of blocks) {
+    // Process each column's content through markdown
+    const processedColumns = await Promise.all(
+      block.columns.map(col => processMarkdown(col))
+    );
+
+    // Build the column HTML
+    const columnCount = processedColumns.length;
+    const columnDivs = processedColumns
+      .map(col => `<div class="soroban-column">${col}</div>`)
+      .join("\n");
+    const columnHtml = `<div class="soroban-columns soroban-columns-${columnCount}">\n${columnDivs}\n</div>`;
+
+    // Replace the placeholder
+    result = result.replace(block.placeholder, columnHtml);
+  }
+
+  return result;
+}
+
+function convertAlertSyntax(html: string): string {
+  // Convert blockquotes with [!TYPE] to styled alert divs
+  // Input pattern from remark: <blockquote>\n<p>[!TYPE]</p>\n<p>content</p>\n</blockquote>
+  // Also handles: <blockquote>\n<p>[!TYPE]\ncontent on same line</p>\n</blockquote>
+  const alertPattern = new RegExp(
+    `<blockquote>\\s*<p>\\[!(${ALERT_TYPES.join("|")})\\](?:<br>\\s*)?([\\s\\S]*?)</p>([\\s\\S]*?)</blockquote>`,
+    "gi"
+  );
+
+  return html.replace(alertPattern, (_, type, firstContent, restContent) => {
+    const upperType = type.toUpperCase();
+    const lowerType = type.toLowerCase();
+    // Combine content from the first paragraph and any remaining paragraphs
+    const content = (firstContent.trim() + restContent).trim();
+    return `<div class="soroban-alert soroban-alert-${lowerType}"><div class="soroban-alert-title">${upperType}</div><div class="soroban-alert-content">${content}</div></div>`;
+  });
+}
+
+// Internal markdown processor without column handling (to avoid recursion)
+async function processMarkdownCore(markdown: string): Promise<string> {
   const result = await unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -56,8 +131,25 @@ export async function parseMarkdown(markdown: string): Promise<string> {
   html = convertRemainingLinks(html);
 
   // Convert custom protocol hrefs to data-action attributes
-  // This prevents the browser from trying to handle them as external protocols
   html = convertCustomProtocolHrefs(html);
+
+  // Convert GitHub-style alert syntax
+  html = convertAlertSyntax(html);
+
+  return html;
+}
+
+export async function parseMarkdown(markdown: string): Promise<string> {
+  // Extract column blocks before processing
+  const { markdown: processedMarkdown, blocks: columnBlocks } = extractColumnBlocks(markdown);
+
+  // Process the main markdown content
+  let html = await processMarkdownCore(processedMarkdown);
+
+  // Process column blocks (each column's content gets processed through markdown)
+  if (columnBlocks.length > 0) {
+    html = await processColumnBlocks(html, columnBlocks, processMarkdownCore);
+  }
 
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [

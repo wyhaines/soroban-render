@@ -212,6 +212,69 @@ describe("parseJsonUI", () => {
 
       expect(result.success).toBe(true);
     });
+
+    it("should parse pie chart component", () => {
+      const result = parseJsonUI(
+        JSON.stringify({
+          format: "soroban-render-json-v1",
+          components: [
+            {
+              type: "chart",
+              chartType: "pie",
+              title: "Task Distribution",
+              data: [
+                { label: "Completed", value: 75, color: "#22c55e" },
+                { label: "Pending", value: 25, color: "#eab308" },
+              ],
+            },
+          ],
+        })
+      );
+
+      expect(result.success).toBe(true);
+    });
+
+    it("should parse gauge chart component", () => {
+      const result = parseJsonUI(
+        JSON.stringify({
+          format: "soroban-render-json-v1",
+          components: [
+            {
+              type: "chart",
+              chartType: "gauge",
+              value: 75,
+              max: 100,
+              label: "Progress",
+              color: "#3b82f6",
+            },
+          ],
+        })
+      );
+
+      expect(result.success).toBe(true);
+    });
+
+    it("should parse bar chart component", () => {
+      const result = parseJsonUI(
+        JSON.stringify({
+          format: "soroban-render-json-v1",
+          components: [
+            {
+              type: "chart",
+              chartType: "bar",
+              title: "Monthly Stats",
+              data: [
+                { label: "Jan", value: 100 },
+                { label: "Feb", value: 150 },
+                { label: "Mar", value: 120 },
+              ],
+            },
+          ],
+        })
+      );
+
+      expect(result.success).toBe(true);
+    });
   });
 
   describe("invalid documents", () => {
@@ -382,6 +445,66 @@ describe("parseJsonUI", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("contract");
+    });
+
+    it("should reject chart with invalid chartType", () => {
+      const result = parseJsonUI(
+        JSON.stringify({
+          format: "soroban-render-json-v1",
+          components: [{ type: "chart", chartType: "invalid" }],
+        })
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("chartType");
+    });
+
+    it("should reject gauge chart without value", () => {
+      const result = parseJsonUI(
+        JSON.stringify({
+          format: "soroban-render-json-v1",
+          components: [{ type: "chart", chartType: "gauge", max: 100 }],
+        })
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("value");
+    });
+
+    it("should reject gauge chart without max", () => {
+      const result = parseJsonUI(
+        JSON.stringify({
+          format: "soroban-render-json-v1",
+          components: [{ type: "chart", chartType: "gauge", value: 50 }],
+        })
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("max");
+    });
+
+    it("should reject pie chart without data", () => {
+      const result = parseJsonUI(
+        JSON.stringify({
+          format: "soroban-render-json-v1",
+          components: [{ type: "chart", chartType: "pie" }],
+        })
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("data");
+    });
+
+    it("should reject bar chart without data", () => {
+      const result = parseJsonUI(
+        JSON.stringify({
+          format: "soroban-render-json-v1",
+          components: [{ type: "chart", chartType: "bar" }],
+        })
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("data");
     });
 
     it("should validate nested container components", () => {

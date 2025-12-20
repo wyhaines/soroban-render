@@ -35,9 +35,18 @@ export {
   type NavigationComponent,
   type ContainerComponent,
   type IncludeComponent,
+  type ChartComponent,
+  type ChartDataPoint,
+  type PieChartComponent,
+  type GaugeChartComponent,
+  type BarChartComponent,
   type FormField,
   type ParseJsonResult,
 } from "./parsers/json";
+
+export { PieChart } from "./components/charts/PieChart";
+export { GaugeChart } from "./components/charts/GaugeChart";
+export { BarChart } from "./components/charts/BarChart";
 
 export {
   useRender,

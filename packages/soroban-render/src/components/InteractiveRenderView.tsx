@@ -1,7 +1,128 @@
-import React, { useRef, useEffect, useCallback } from "react";
-import { parseLink, collectFormInputs, buildPathWithParams } from "../utils/linkParser";
+import React, { useRef, useEffect, useCallback, useState } from "react";
+import { parseLink, collectFormInputs, buildPathWithParams, ParsedLink } from "../utils/linkParser";
 import { submitTransaction, TransactionResult } from "../utils/transaction";
 import { SorobanClient } from "../utils/client";
+
+// Modal for user-settable parameters
+interface ParamModalProps {
+  params: string[];
+  method: string;
+  onSubmit: (values: Record<string, string>) => void;
+  onCancel: () => void;
+}
+
+function ParamInputModal({ params, method, onSubmit, onCancel }: ParamModalProps): React.ReactElement {
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    params.reduce((acc, p) => ({ ...acc, [p]: "" }), {})
+  );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Validate all fields have values
+    const allFilled = params.every(p => values[p]?.trim() !== "");
+    if (!allFilled) return;
+    onSubmit(values);
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: "white",
+          borderRadius: "8px",
+          padding: "1.5rem",
+          minWidth: "320px",
+          maxWidth: "480px",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+        }}
+      >
+        <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.125rem", fontWeight: 600 }}>
+          Enter Parameters for {method}
+        </h3>
+        <form onSubmit={handleSubmit}>
+          {params.map((param) => (
+            <div key={param} style={{ marginBottom: "1rem" }}>
+              <label
+                htmlFor={`param-${param}`}
+                style={{
+                  display: "block",
+                  marginBottom: "0.25rem",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                  color: "#374151",
+                }}
+              >
+                {param}
+              </label>
+              <input
+                id={`param-${param}`}
+                type="text"
+                value={values[param]}
+                onChange={(e) => setValues((prev) => ({ ...prev, [param]: e.target.value }))}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem 0.75rem",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "1rem",
+                  boxSizing: "border-box",
+                }}
+                autoFocus={params.indexOf(param) === 0}
+              />
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{
+                padding: "0.5rem 1rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                backgroundColor: "white",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={{
+                padding: "0.5rem 1rem",
+                border: "none",
+                borderRadius: "6px",
+                backgroundColor: "#2563eb",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+              }}
+            >
+              Submit Transaction
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export interface InteractiveRenderViewProps {
   html: string | null;
@@ -18,6 +139,12 @@ export interface InteractiveRenderViewProps {
   onTransactionStart?: () => void;
   onTransactionComplete?: (result: TransactionResult) => void;
   onError?: (error: string) => void;
+}
+
+// State for pending transaction with user-settable parameters
+interface PendingUserParams {
+  parsed: ParsedLink;
+  params: string[];
 }
 
 export function InteractiveRenderView({
@@ -37,6 +164,42 @@ export function InteractiveRenderView({
   onError,
 }: InteractiveRenderViewProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [pendingUserParams, setPendingUserParams] = useState<PendingUserParams | null>(null);
+
+  // Handle modal submission
+  const handleParamSubmit = useCallback(
+    async (values: Record<string, string>) => {
+      if (!pendingUserParams || !client || !contractId || !walletAddress) return;
+
+      const parsed = pendingUserParams.parsed;
+      setPendingUserParams(null);
+
+      // Merge user-provided values with original args
+      const mergedArgs: Record<string, unknown> = {
+        ...(parsed.args || {}),
+        ...values,
+        caller: walletAddress,
+      };
+
+      onTransactionStart?.();
+
+      const result = await submitTransaction(client, contractId, {
+        method: parsed.method!,
+        args: mergedArgs,
+      }, walletAddress);
+
+      onTransactionComplete?.(result);
+
+      if (!result.success && result.error) {
+        onError?.(result.error);
+      }
+    },
+    [pendingUserParams, client, contractId, walletAddress, onTransactionStart, onTransactionComplete, onError]
+  );
+
+  const handleParamCancel = useCallback(() => {
+    setPendingUserParams(null);
+  }, []);
 
   const handleClick = useCallback(
     async (event: MouseEvent) => {
@@ -80,6 +243,16 @@ export function InteractiveRenderView({
 
         if (!parsed.method) {
           onError?.("Invalid transaction link");
+          return;
+        }
+
+        // Check if there are user-settable parameters (empty string values)
+        if (parsed.userSettableParams && parsed.userSettableParams.length > 0) {
+          // Show modal to collect parameter values
+          setPendingUserParams({
+            parsed,
+            params: parsed.userSettableParams,
+          });
           return;
         }
 
@@ -149,7 +322,7 @@ export function InteractiveRenderView({
         return;
       }
     },
-    [client, contractId, walletAddress, onPathChange, onTransactionStart, onTransactionComplete, onError]
+    [client, contractId, walletAddress, onPathChange, onTransactionStart, onTransactionComplete, onError, setPendingUserParams]
   );
 
   useEffect(() => {
@@ -228,11 +401,21 @@ export function InteractiveRenderView({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={`soroban-render-view ${className}`}
-      style={style}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <>
+      <div
+        ref={containerRef}
+        className={`soroban-render-view ${className}`}
+        style={style}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {pendingUserParams && (
+        <ParamInputModal
+          params={pendingUserParams.params}
+          method={pendingUserParams.parsed.method!}
+          onSubmit={handleParamSubmit}
+          onCancel={handleParamCancel}
+        />
+      )}
+    </>
   );
 }

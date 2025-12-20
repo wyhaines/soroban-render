@@ -13,6 +13,17 @@ export interface ParsedLink {
    * Example: `render:/path` sets functionName=undefined, path="/path"
    */
   functionName?: string;
+  /**
+   * For tx: protocol, the amount of stroops to attach to the transaction.
+   * Syntax: `tx:method {"args":...} .send=1000000`
+   * 1 XLM = 10,000,000 stroops
+   */
+  sendAmount?: string;
+  /**
+   * For tx: protocol, parameters with empty string values that should be
+   * prompted for user input before submitting the transaction.
+   */
+  userSettableParams?: string[];
 }
 
 export function parseLink(href: string): ParsedLink {
@@ -55,27 +66,44 @@ export function parseLink(href: string): ParsedLink {
 
   if (href.startsWith("tx:")) {
     const content = href.slice(3).trim();
-    const spaceIndex = content.indexOf(" ");
+
+    // Check for .send= parameter at the end
+    const sendMatch = content.match(/\s+\.send=(\d+)$/);
+    const sendAmount = sendMatch ? sendMatch[1] : undefined;
+    const contentWithoutSend = sendMatch
+      ? content.slice(0, content.length - sendMatch[0].length).trim()
+      : content;
+
+    const spaceIndex = contentWithoutSend.indexOf(" ");
 
     if (spaceIndex === -1) {
       return {
         protocol: "tx",
         href,
-        method: content,
+        method: contentWithoutSend,
         args: {},
+        sendAmount,
       };
     }
 
-    const method = content.slice(0, spaceIndex);
-    const argsJson = content.slice(spaceIndex).trim();
+    const method = contentWithoutSend.slice(0, spaceIndex);
+    const argsJson = contentWithoutSend.slice(spaceIndex).trim();
 
     try {
-      const args = JSON.parse(argsJson);
+      const args = JSON.parse(argsJson) as Record<string, unknown>;
+
+      // Detect user-settable parameters (empty string values)
+      const userSettableParams = Object.entries(args)
+        .filter(([, v]) => v === "")
+        .map(([k]) => k);
+
       return {
         protocol: "tx",
         href,
         method,
         args,
+        sendAmount,
+        userSettableParams: userSettableParams.length > 0 ? userSettableParams : undefined,
       };
     } catch {
       return {
@@ -83,6 +111,7 @@ export function parseLink(href: string): ParsedLink {
         href,
         method,
         args: {},
+        sendAmount,
       };
     }
   }

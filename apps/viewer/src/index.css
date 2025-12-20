@@ -127,3 +127,93 @@ body {
 .soroban-render-view a.soroban-action[data-action*="delete"] {
   @apply bg-red-600 hover:bg-red-700;
 }
+
+/* Alert/Callout styles */
+.soroban-render-view .soroban-alert {
+  @apply my-4 p-4 rounded-lg border-l-4;
+}
+
+.soroban-render-view .soroban-alert-note {
+  @apply bg-blue-50 border-blue-500;
+}
+
+.soroban-render-view .soroban-alert-warning {
+  @apply bg-yellow-50 border-yellow-500;
+}
+
+.soroban-render-view .soroban-alert-tip {
+  @apply bg-green-50 border-green-500;
+}
+
+.soroban-render-view .soroban-alert-info {
+  @apply bg-gray-100 border-gray-500;
+}
+
+.soroban-render-view .soroban-alert-caution {
+  @apply bg-red-50 border-red-500;
+}
+
+.soroban-render-view .soroban-alert-title {
+  @apply font-bold mb-2 text-sm uppercase tracking-wide;
+}
+
+.soroban-render-view .soroban-alert-note .soroban-alert-title {
+  @apply text-blue-700;
+}
+
+.soroban-render-view .soroban-alert-warning .soroban-alert-title {
+  @apply text-yellow-700;
+}
+
+.soroban-render-view .soroban-alert-tip .soroban-alert-title {
+  @apply text-green-700;
+}
+
+.soroban-render-view .soroban-alert-info .soroban-alert-title {
+  @apply text-gray-700;
+}
+
+.soroban-render-view .soroban-alert-caution .soroban-alert-title {
+  @apply text-red-700;
+}
+
+.soroban-render-view .soroban-alert-content {
+  @apply text-gray-700;
+}
+
+.soroban-render-view .soroban-alert-content p {
+  @apply my-1;
+}
+
+/* Multi-column layout styles */
+.soroban-render-view .soroban-columns {
+  @apply grid gap-4 my-4;
+}
+
+.soroban-render-view .soroban-columns-1 {
+  @apply grid-cols-1;
+}
+
+.soroban-render-view .soroban-columns-2 {
+  @apply grid-cols-1 md:grid-cols-2;
+}
+
+.soroban-render-view .soroban-columns-3 {
+  @apply grid-cols-1 md:grid-cols-3;
+}
+
+.soroban-render-view .soroban-columns-4 {
+  @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-4;
+}
+
+.soroban-render-view .soroban-column {
+  @apply p-4 bg-gray-50 rounded-lg;
+}
+
+.soroban-render-view .soroban-column > *:first-child {
+  @apply mt-0;
+}
+
+.soroban-render-view .soroban-column > *:last-child {
+  @apply mb-0;
+}
