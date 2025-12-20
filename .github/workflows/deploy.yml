@@ -42,7 +42,7 @@ jobs:
 
       - name: Configure Stellar identity
         run: |
-          stellar keys add deployer --secret-key <<< "${{ secrets.STELLAR_SECRET_KEY }}"
+          echo "${{ secrets.STELLAR_SECRET_KEY }}" | stellar keys add deployer --secret-key
 
       - name: Build theme contract
         run: |
