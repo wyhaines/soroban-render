@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { SorobanClient, callRender, RenderOptions } from "../utils/client";
 import { parseMarkdown, detectFormat } from "../parsers/markdown";
 import { parseJsonUI, JsonUIDocument } from "../parsers/json";
+import { resolveIncludes } from "../utils/includeResolver";
 
 export interface UseRenderResult {
   html: string | null;
@@ -17,6 +18,16 @@ export interface UseRenderResult {
 
 export interface UseRenderOptions extends RenderOptions {
   enabled?: boolean;
+  /**
+   * Whether to resolve {{include ...}} tags in the content.
+   * Default: true
+   */
+  resolveIncludes?: boolean;
+  /**
+   * Cache TTL for include resolution in milliseconds.
+   * Default: 30000 (30 seconds)
+   */
+  includeCacheTtl?: number;
 }
 
 export function useRender(
@@ -24,7 +35,13 @@ export function useRender(
   contractId: string | null,
   options: UseRenderOptions = {}
 ): UseRenderResult {
-  const { path: initialPath = "/", viewer, enabled = true } = options;
+  const {
+    path: initialPath = "/",
+    viewer,
+    enabled = true,
+    resolveIncludes: shouldResolveIncludes = true,
+    includeCacheTtl = 30000,
+  } = options;
 
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [html, setHtml] = useState<string | null>(null);
@@ -33,6 +50,9 @@ export function useRender(
   const [format, setFormat] = useState<"markdown" | "json" | "unknown" | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Cache for include resolution (persists across renders)
+  const includeCacheRef = useRef<Map<string, { content: string; timestamp: number }>>(new Map());
 
   useEffect(() => {
     setCurrentPath(initialPath);
@@ -47,7 +67,19 @@ export function useRender(
     setError(null);
 
     try {
-      const content = await callRender(client, contractId, { path: currentPath, viewer });
+      let content = await callRender(client, contractId, { path: currentPath, viewer });
+
+      // Resolve includes if enabled
+      if (shouldResolveIncludes) {
+        const resolved = await resolveIncludes(client, content, {
+          contractId,
+          viewer,
+          cache: includeCacheRef.current,
+          cacheTtl: includeCacheTtl,
+        });
+        content = resolved.content;
+      }
+
       setRaw(content);
 
       const detectedFormat = detectFormat(content);
@@ -86,7 +118,7 @@ export function useRender(
     } finally {
       setLoading(false);
     }
-  }, [client, contractId, currentPath, viewer]);
+  }, [client, contractId, currentPath, viewer, shouldResolveIncludes, includeCacheTtl]);
 
   useEffect(() => {
     if (enabled) {

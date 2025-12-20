@@ -12,6 +12,12 @@ import {
 export interface RenderOptions {
   path?: string;
   viewer?: string;
+  /**
+   * Optional function name for render_* convention.
+   * When specified, calls `render_{functionName}` instead of `render`.
+   * Example: functionName="header" calls `render_header(path, viewer)`
+   */
+  functionName?: string;
 }
 
 export interface SorobanClient {
@@ -61,7 +67,12 @@ export async function callRender(
     ? nativeToScVal(options.viewer, { type: "address" })
     : xdr.ScVal.scvVoid();
 
-  const operation = contract.call("render", pathArg, viewerArg);
+  // Use render_{functionName} if provided, otherwise just "render"
+  const methodName = options.functionName
+    ? `render_${options.functionName}`
+    : "render";
+
+  const operation = contract.call(methodName, pathArg, viewerArg);
   const mockAccount = new Account(SIMULATION_SOURCE, "0");
 
   const tx = new TransactionBuilder(mockAccount, {

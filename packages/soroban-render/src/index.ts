@@ -81,3 +81,19 @@ export {
   type LinkProtocol,
   type ParsedLink,
 } from "./utils/linkParser";
+
+export {
+  parseIncludes,
+  hasIncludes,
+  createIncludeKey,
+  type IncludeTag,
+  type ParsedIncludes,
+} from "./parsers/include";
+
+export {
+  resolveIncludes,
+  createIncludeResolver,
+  type ResolveOptions,
+  type ResolveResult,
+  type CacheEntry,
+} from "./utils/includeResolver";

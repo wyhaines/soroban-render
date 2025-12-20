@@ -6,14 +6,50 @@ export interface ParsedLink {
   method?: string;
   args?: Record<string, unknown>;
   path?: string;
+  /**
+   * For render: protocol, the function name if using render_* convention.
+   * Example: `render:header` sets functionName="header"
+   * Example: `render:header/path` sets functionName="header", path="/path"
+   * Example: `render:/path` sets functionName=undefined, path="/path"
+   */
+  functionName?: string;
 }
 
 export function parseLink(href: string): ParsedLink {
   if (href.startsWith("render:")) {
+    const content = href.slice(7); // Remove "render:"
+
+    // If starts with / or ?, it's a path for the default render() function
+    if (content.startsWith("/") || content.startsWith("?") || content === "") {
+      return {
+        protocol: "render",
+        href,
+        path: content || undefined,
+      };
+    }
+
+    // Otherwise, it's a function name (render_* convention)
+    // Format: render:name or render:name/path or render:name?query
+    const pathStart = content.search(/[/?]/);
+
+    if (pathStart === -1) {
+      // Just a function name, no path
+      return {
+        protocol: "render",
+        href,
+        functionName: content,
+      };
+    }
+
+    // Function name followed by path
+    const functionName = content.slice(0, pathStart);
+    const path = content.slice(pathStart);
+
     return {
       protocol: "render",
       href,
-      path: href.slice(7),
+      functionName,
+      path,
     };
   }
 

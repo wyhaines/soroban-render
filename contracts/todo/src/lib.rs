@@ -195,7 +195,9 @@ impl TodoContract {
     fn render_task_list(env: &Env, tasks: &Map<u32, Task>, filter: Option<bool>) -> Bytes {
         let mut parts: Vec<Bytes> = Vec::new(env);
 
-        parts.push_back(Bytes::from_slice(env, b"# Todo List\n\n"));
+        // Use self-referential include for header component
+        // This demonstrates the render_* convention: calls render_header(path, viewer)
+        parts.push_back(Bytes::from_slice(env, b"{{include contract=SELF func=\"header\"}}\n"));
 
         // Add task form
         parts.push_back(Bytes::from_slice(env, b"## Add Task\n\n"));
@@ -254,7 +256,8 @@ impl TodoContract {
             }
         }
 
-        parts.push_back(Bytes::from_slice(env, b"\n---\n*Powered by Soroban Render*\n"));
+        // Use self-referential include for footer component
+        parts.push_back(Bytes::from_slice(env, b"{{include contract=SELF func=\"footer\"}}"));
 
         Self::concat_bytes(env, &parts)
     }
@@ -299,6 +302,16 @@ impl TodoContract {
         }
 
         Self::concat_bytes(env, &parts)
+    }
+
+    /// Render footer component - can be included via {{include contract=SELF func="footer"}}
+    pub fn render_footer(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
+        Bytes::from_slice(&env, b"\n---\n\n*Powered by [Soroban Render](https://github.com/wyhaines/soroban-render)*\n")
+    }
+
+    /// Render header component - can be included via {{include contract=SELF func="header"}}
+    pub fn render_header(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
+        Bytes::from_slice(&env, b"# Todo List\n\n*A demo app showcasing Soroban Render*\n\n---\n\n")
     }
 
     fn render_json(env: &Env, tasks: &Map<u32, Task>, subpath: Option<Bytes>) -> Bytes {
@@ -572,7 +585,10 @@ mod test {
             }
         }
         let output_str = core::str::from_utf8(&bytes_vec[..len]).unwrap();
-        assert!(output_str.contains("# Todo List"));
+        // Check for include tags (resolution happens on client side)
+        assert!(output_str.contains("{{include contract=SELF func=\"header\"}}"));
+        assert!(output_str.contains("{{include contract=SELF func=\"footer\"}}"));
+        // Check for task content
         assert!(output_str.contains("First task"));
         assert!(output_str.contains("Second task"));
     }
