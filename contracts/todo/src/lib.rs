@@ -116,56 +116,107 @@ impl TodoContract {
             .get(&TASKS)
             .unwrap_or(Map::new(&env));
 
-        if let Some(ref p) = path {
-            let path_len = p.len() as usize;
-            if path_len > 6 {
-                let prefix = String::from_str(&env, "/task/");
-                let prefix_bytes = Self::string_to_bytes(&env, &prefix);
-                let path_bytes = Self::string_to_bytes(&env, p);
+        let filter = if let Some(ref p) = path {
+            let path_bytes = Self::string_to_bytes(&env, p);
+            let pending_bytes = Bytes::from_slice(&env, b"/pending");
+            let completed_bytes = Bytes::from_slice(&env, b"/completed");
 
-                let mut matches = true;
-                for i in 0..6 {
-                    if path_bytes.get(i as u32) != prefix_bytes.get(i as u32) {
-                        matches = false;
-                        break;
+            if path_bytes == pending_bytes {
+                Some(false)
+            } else if path_bytes == completed_bytes {
+                Some(true)
+            } else {
+                let path_len = p.len() as usize;
+                if path_len > 6 {
+                    let prefix = String::from_str(&env, "/task/");
+                    let prefix_bytes = Self::string_to_bytes(&env, &prefix);
+
+                    let mut matches = true;
+                    for i in 0..6 {
+                        if path_bytes.get(i as u32) != prefix_bytes.get(i as u32) {
+                            matches = false;
+                            break;
+                        }
                     }
-                }
 
-                if matches {
-                    if let Some(id_byte) = path_bytes.get(6) {
-                        if id_byte >= b'0' && id_byte <= b'9' {
-                            let id = (id_byte - b'0') as u32;
-                            return Self::render_single_task(&env, &tasks, id);
+                    if matches {
+                        if let Some(id_byte) = path_bytes.get(6) {
+                            if id_byte >= b'0' && id_byte <= b'9' {
+                                let id = (id_byte - b'0') as u32;
+                                return Self::render_single_task(&env, &tasks, id);
+                            }
                         }
                     }
                 }
+                None
             }
-        }
+        } else {
+            None
+        };
 
-        Self::render_task_list(&env, &tasks)
+        Self::render_task_list(&env, &tasks, filter)
     }
 
-    fn render_task_list(env: &Env, tasks: &Map<u32, Task>) -> Bytes {
+    fn render_task_list(env: &Env, tasks: &Map<u32, Task>, filter: Option<bool>) -> Bytes {
         let mut parts: Vec<Bytes> = Vec::new(env);
 
         parts.push_back(Bytes::from_slice(env, b"# Todo List\n\n"));
+
+        // Add task form
+        parts.push_back(Bytes::from_slice(env, b"## Add Task\n\n"));
+        parts.push_back(Bytes::from_slice(env, b"<input name=\"description\" type=\"text\" placeholder=\"Enter task description\" />\n\n"));
+        parts.push_back(Bytes::from_slice(env, b"[Add Task](form:add_task)\n\n"));
+
+        // Filter navigation
+        parts.push_back(Bytes::from_slice(env, b"## Filter\n\n"));
+        parts.push_back(Bytes::from_slice(env, b"[All](render:/) | [Pending](render:/pending) | [Completed](render:/completed)\n\n"));
+
         parts.push_back(Bytes::from_slice(env, b"## Tasks\n\n"));
 
         let mut has_tasks = false;
         for (_, task) in tasks.iter() {
+            // Apply filter
+            if let Some(completed_filter) = filter {
+                if task.completed != completed_filter {
+                    continue;
+                }
+            }
+
             has_tasks = true;
             let checkbox = if task.completed { b"[x]" } else { b"[ ]" };
             parts.push_back(Bytes::from_slice(env, b"- "));
             parts.push_back(Bytes::from_slice(env, checkbox));
             parts.push_back(Bytes::from_slice(env, b" "));
-            parts.push_back(Self::string_to_bytes(env, &task.description));
+
+            if task.completed {
+                parts.push_back(Bytes::from_slice(env, b"~~"));
+                parts.push_back(Self::string_to_bytes(env, &task.description));
+                parts.push_back(Bytes::from_slice(env, b"~~"));
+            } else {
+                parts.push_back(Self::string_to_bytes(env, &task.description));
+            }
+
             parts.push_back(Bytes::from_slice(env, b" (#"));
             parts.push_back(Self::u32_to_bytes(env, task.id));
-            parts.push_back(Bytes::from_slice(env, b")\n"));
+            parts.push_back(Bytes::from_slice(env, b") "));
+
+            // Action buttons
+            if !task.completed {
+                parts.push_back(Bytes::from_slice(env, b"[Done](tx:complete_task {\"id\":"));
+                parts.push_back(Self::u32_to_bytes(env, task.id));
+                parts.push_back(Bytes::from_slice(env, b"}) "));
+            }
+            parts.push_back(Bytes::from_slice(env, b"[Delete](tx:delete_task {\"id\":"));
+            parts.push_back(Self::u32_to_bytes(env, task.id));
+            parts.push_back(Bytes::from_slice(env, b"})\n"));
         }
 
         if !has_tasks {
-            parts.push_back(Bytes::from_slice(env, b"*No tasks yet. Add one below!*\n\n"));
+            if filter.is_some() {
+                parts.push_back(Bytes::from_slice(env, b"*No matching tasks.*\n\n"));
+            } else {
+                parts.push_back(Bytes::from_slice(env, b"*No tasks yet. Add one above!*\n\n"));
+            }
         }
 
         parts.push_back(Bytes::from_slice(env, b"\n---\n*Powered by Soroban Render*\n"));
@@ -197,9 +248,19 @@ impl TodoContract {
             parts.push_back(Bytes::from_slice(env, status));
             parts.push_back(Bytes::from_slice(env, b"\n\n"));
 
-            parts.push_back(Bytes::from_slice(env, b"[Back to list](/)\n"));
+            // Action buttons
+            if !task.completed {
+                parts.push_back(Bytes::from_slice(env, b"[Mark Complete](tx:complete_task {\"id\":"));
+                parts.push_back(Self::u32_to_bytes(env, task.id));
+                parts.push_back(Bytes::from_slice(env, b"}) | "));
+            }
+            parts.push_back(Bytes::from_slice(env, b"[Delete](tx:delete_task {\"id\":"));
+            parts.push_back(Self::u32_to_bytes(env, task.id));
+            parts.push_back(Bytes::from_slice(env, b"})\n\n"));
+
+            parts.push_back(Bytes::from_slice(env, b"[Back to list](render:/)\n"));
         } else {
-            parts.push_back(Bytes::from_slice(env, b"*Task not found*\n\n[Back to list](/)\n"));
+            parts.push_back(Bytes::from_slice(env, b"*Task not found*\n\n[Back to list](render:/)\n"));
         }
 
         Self::concat_bytes(env, &parts)

@@ -1,23 +1,53 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   createClient,
   useRender,
-  RenderView,
+  useWallet,
+  InteractiveRenderView,
   Networks,
   type NetworkName,
   type SorobanClient,
+  type TransactionResult,
 } from "@soroban-render/core";
 
 type Network = NetworkName | "custom";
 
-export default function App() {
-  const [contractId, setContractId] = useState("");
-  const [inputContractId, setInputContractId] = useState("");
-  const [network, setNetwork] = useState<Network>("local");
-  const [customRpcUrl, setCustomRpcUrl] = useState("");
-  const [path, setPath] = useState("");
+function getConfigFromUrl(): { contract?: string; network?: Network; path?: string } {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    contract: params.get("contract") || undefined,
+    network: (params.get("network") as Network) || undefined,
+    path: params.get("path") || undefined,
+  };
+}
 
-  // Create the Soroban client based on selected network
+function getConfigFromEnv(): { contract?: string; network?: Network } {
+  return {
+    contract: import.meta.env.VITE_CONTRACT_ID || undefined,
+    network: (import.meta.env.VITE_NETWORK as Network) || undefined,
+  };
+}
+
+export default function App() {
+  const urlConfig = getConfigFromUrl();
+  const envConfig = getConfigFromEnv();
+
+  const preConfiguredContract = urlConfig.contract || envConfig.contract;
+  const preConfiguredNetwork = urlConfig.network || envConfig.network || "local";
+  const preConfiguredPath = urlConfig.path || "/";
+
+  const isEmbedded = !!preConfiguredContract;
+
+  const [contractId, setContractId] = useState(preConfiguredContract || "");
+  const [inputContractId, setInputContractId] = useState(preConfiguredContract || "");
+  const [network, setNetwork] = useState<Network>(preConfiguredNetwork);
+  const [customRpcUrl, setCustomRpcUrl] = useState("");
+  const [inputPath, setInputPath] = useState(preConfiguredPath);
+  const [txPending, setTxPending] = useState(false);
+  const [txError, setTxError] = useState<string | null>(null);
+
+  const wallet = useWallet();
+
   const client = useMemo((): SorobanClient | null => {
     if (network === "custom") {
       if (!customRpcUrl) return null;
@@ -27,14 +57,18 @@ export default function App() {
     return createClient(config.rpcUrl, config.networkPassphrase);
   }, [network, customRpcUrl]);
 
-  // Use the render hook
-  const { html, loading, error, refetch } = useRender(
+  const { html, loading, error, path, setPath, refetch } = useRender(
     client,
     contractId || null,
-    { path: path || undefined }
+    { path: inputPath || "/", viewer: wallet.address || undefined }
   );
 
-  // Handle form submission
+  useEffect(() => {
+    if (preConfiguredContract && !contractId) {
+      setContractId(preConfiguredContract);
+    }
+  }, [preConfiguredContract, contractId]);
+
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
@@ -42,6 +76,105 @@ export default function App() {
     },
     [inputContractId]
   );
+
+  const handlePathChange = useCallback(
+    (newPath: string) => {
+      setPath(newPath);
+      setInputPath(newPath);
+    },
+    [setPath]
+  );
+
+  const handleTransactionStart = useCallback(() => {
+    setTxPending(true);
+    setTxError(null);
+  }, []);
+
+  const handleTransactionComplete = useCallback(
+    (result: TransactionResult) => {
+      setTxPending(false);
+      if (result.success) {
+        refetch();
+      }
+    },
+    [refetch]
+  );
+
+  const handleError = useCallback((err: string) => {
+    setTxError(err);
+    setTxPending(false);
+  }, []);
+
+  if (isEmbedded) {
+    return (
+      <div className="min-h-screen bg-white">
+        {/* Minimal header with wallet only */}
+        <header className="fixed top-0 right-0 p-4 z-10">
+          <div className="flex items-center gap-2">
+            {wallet.connected ? (
+              <>
+                <span className="text-sm text-gray-600 font-mono bg-white/80 px-2 py-1 rounded">
+                  {wallet.address?.slice(0, 4)}...{wallet.address?.slice(-4)}
+                </span>
+                <button
+                  onClick={wallet.disconnect}
+                  className="px-3 py-1.5 text-sm bg-white/80 text-gray-700 rounded-md hover:bg-gray-100 border border-gray-200"
+                >
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={wallet.connect}
+                disabled={wallet.connecting}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 shadow-sm"
+              >
+                {wallet.connecting ? "Connecting..." : "Connect Wallet"}
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Status messages */}
+        {(txPending || txError || wallet.error) && (
+          <div className="fixed top-4 left-4 right-24 z-10 space-y-2">
+            {txPending && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 shadow-sm">
+                <p className="text-blue-700 text-sm">Transaction pending...</p>
+              </div>
+            )}
+            {txError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 shadow-sm">
+                <p className="text-red-700 text-sm">{txError}</p>
+              </div>
+            )}
+            {wallet.error && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 shadow-sm">
+                <p className="text-yellow-700 text-sm">{wallet.error}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Full-page content */}
+        <main className="p-8 pt-16">
+          <InteractiveRenderView
+            html={html}
+            loading={loading || txPending}
+            error={error}
+            className="prose prose-slate max-w-none"
+            client={client}
+            contractId={contractId || null}
+            walletAddress={wallet.address}
+            onPathChange={handlePathChange}
+            onTransactionStart={handleTransactionStart}
+            onTransactionComplete={handleTransactionComplete}
+            onError={handleError}
+          />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -57,24 +190,47 @@ export default function App() {
                 View self-contained Soroban dApp UIs
               </p>
             </div>
-            <a
-              href="https://github.com/wyhaines/soroban-render"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-600 hover:text-gray-900"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex items-center gap-4">
+              {wallet.connected ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 font-mono">
+                    {wallet.address?.slice(0, 4)}...{wallet.address?.slice(-4)}
+                  </span>
+                  <button
+                    onClick={wallet.disconnect}
+                    className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={wallet.connect}
+                  disabled={wallet.connecting}
+                  className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {wallet.connecting ? "Connecting..." : "Connect Wallet"}
+                </button>
+              )}
+              <a
+                href="https://github.com/wyhaines/soroban-render"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-600 hover:text-gray-900"
               >
-                <path
-                  fillRule="evenodd"
-                  d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </a>
+                <svg
+                  className="w-6 h-6"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </a>
+            </div>
           </div>
         </div>
       </header>
@@ -150,13 +306,13 @@ export default function App() {
                 htmlFor="path"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Path (optional)
+                Path {path !== inputPath && <span className="text-gray-400">(current: {path})</span>}
               </label>
               <input
                 type="text"
                 id="path"
-                value={path}
-                onChange={(e) => setPath(e.target.value)}
+                value={inputPath}
+                onChange={(e) => setInputPath(e.target.value)}
                 placeholder="/task/123"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
               />
@@ -223,13 +379,37 @@ export default function App() {
           </div>
         </div>
 
+        {/* Transaction Status */}
+        {txPending && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p className="text-blue-700">Transaction pending...</p>
+          </div>
+        )}
+        {txError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p className="text-red-700">{txError}</p>
+          </div>
+        )}
+        {wallet.error && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <p className="text-yellow-700">{wallet.error}</p>
+          </div>
+        )}
+
         {/* Rendered Content */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <RenderView
+          <InteractiveRenderView
             html={html}
-            loading={loading}
+            loading={loading || txPending}
             error={error}
             className="prose prose-slate max-w-none"
+            client={client}
+            contractId={contractId || null}
+            walletAddress={wallet.address}
+            onPathChange={handlePathChange}
+            onTransactionStart={handleTransactionStart}
+            onTransactionComplete={handleTransactionComplete}
+            onError={handleError}
           />
 
           {/* Empty State */}

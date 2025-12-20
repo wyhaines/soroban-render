@@ -8,6 +8,8 @@ export interface UseRenderResult {
   format: "markdown" | "json" | "unknown" | null;
   loading: boolean;
   error: string | null;
+  path: string;
+  setPath: (path: string) => void;
   refetch: () => Promise<void>;
 }
 
@@ -20,13 +22,18 @@ export function useRender(
   contractId: string | null,
   options: UseRenderOptions = {}
 ): UseRenderResult {
-  const { path, viewer, enabled = true } = options;
+  const { path: initialPath = "/", viewer, enabled = true } = options;
 
+  const [currentPath, setCurrentPath] = useState(initialPath);
   const [html, setHtml] = useState<string | null>(null);
   const [raw, setRaw] = useState<string | null>(null);
   const [format, setFormat] = useState<"markdown" | "json" | "unknown" | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCurrentPath(initialPath);
+  }, [initialPath]);
 
   const fetchRender = useCallback(async () => {
     if (!client || !contractId) {
@@ -37,7 +44,7 @@ export function useRender(
     setError(null);
 
     try {
-      const content = await callRender(client, contractId, { path, viewer });
+      const content = await callRender(client, contractId, { path: currentPath, viewer });
       setRaw(content);
 
       const detectedFormat = detectFormat(content);
@@ -62,7 +69,7 @@ export function useRender(
     } finally {
       setLoading(false);
     }
-  }, [client, contractId, path, viewer]);
+  }, [client, contractId, currentPath, viewer]);
 
   useEffect(() => {
     if (enabled) {
@@ -76,6 +83,8 @@ export function useRender(
     format,
     loading,
     error,
+    path: currentPath,
+    setPath: setCurrentPath,
     refetch: fetchRender,
   };
 }
