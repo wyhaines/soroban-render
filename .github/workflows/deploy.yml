@@ -41,6 +41,16 @@ jobs:
           cargo install stellar-cli --locked
           stellar --version
 
+      - name: Fund deployer account via Friendbot
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          # Get public key from secret key
+          PUBLIC_KEY=$(stellar keys address "$STELLAR_SECRET_KEY")
+          echo "Funding account: $PUBLIC_KEY"
+          # Fund via Friendbot (ignore errors if already funded)
+          curl -s "https://friendbot.stellar.org?addr=$PUBLIC_KEY" || true
+
       - name: Build theme contract
         run: |
           cd contracts/theme
