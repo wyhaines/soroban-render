@@ -30,6 +30,11 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Install Stellar CLI
         run: |
           cargo install stellar-cli --locked
@@ -105,6 +110,9 @@ jobs:
 
       - name: Build library
         run: pnpm --filter @soroban-render/core build
+
+      - name: Run tests
+        run: pnpm test
 
       - name: Generate production config
         run: |

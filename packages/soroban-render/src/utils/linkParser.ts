@@ -54,19 +54,19 @@ export function parseLink(href: string): ParsedLink {
   }
 
   if (href.startsWith("tx:")) {
-    const content = href.slice(3);
+    const content = href.slice(3).trim();
     const spaceIndex = content.indexOf(" ");
 
     if (spaceIndex === -1) {
       return {
         protocol: "tx",
         href,
-        method: content.trim(),
+        method: content,
         args: {},
       };
     }
 
-    const method = content.slice(0, spaceIndex).trim();
+    const method = content.slice(0, spaceIndex);
     const argsJson = content.slice(spaceIndex).trim();
 
     try {

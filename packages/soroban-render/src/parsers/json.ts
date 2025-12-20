@@ -324,7 +324,7 @@ export function isJsonFormat(content: string): boolean {
 
   try {
     const parsed = JSON.parse(trimmed);
-    return parsed.format && parsed.format.startsWith("soroban-render-json");
+    return Boolean(parsed.format && parsed.format.startsWith("soroban-render-json"));
   } catch {
     return false;
   }
