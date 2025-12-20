@@ -40,10 +40,6 @@ jobs:
           cargo install stellar-cli --locked
           stellar --version
 
-      - name: Configure Stellar identity
-        run: |
-          echo "${{ secrets.STELLAR_SECRET_KEY }}" | stellar keys add deployer --secret-key
-
       - name: Build theme contract
         run: |
           cd contracts/theme
@@ -56,11 +52,13 @@ jobs:
 
       - name: Deploy theme contract
         id: deploy-theme
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
         run: |
           THEME_ID=$(stellar contract deploy \
             --wasm contracts/theme/target/wasm32-unknown-unknown/release/soroban_render_theme.wasm \
             --network testnet \
-            --source deployer)
+            --source "$STELLAR_SECRET_KEY")
           echo "contract_id=$THEME_ID" >> $GITHUB_OUTPUT
           echo "Theme contract deployed: $THEME_ID"
 
@@ -80,20 +78,24 @@ jobs:
 
       - name: Deploy todo contract
         id: deploy-todo
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
         run: |
           TODO_ID=$(stellar contract deploy \
             --wasm contracts/todo/target/wasm32-unknown-unknown/release/soroban_render_todo.wasm \
             --network testnet \
-            --source deployer)
+            --source "$STELLAR_SECRET_KEY")
           echo "contract_id=$TODO_ID" >> $GITHUB_OUTPUT
           echo "Todo contract deployed: $TODO_ID"
 
       - name: Initialize todo contract
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
         run: |
           stellar contract invoke \
             --id ${{ steps.deploy-todo.outputs.contract_id }} \
             --network testnet \
-            --source deployer \
+            --source "$STELLAR_SECRET_KEY" \
             -- init || echo "Init may have already been called"
 
       - name: Setup pnpm
