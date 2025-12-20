@@ -16,8 +16,8 @@ async function test() {
   // Capture console logs
   page.on('console', msg => console.log('BROWSER:', msg.text()));
 
-  // Navigate to the demo app with the updated contract
-  const CONTRACT_ID = 'CACTK64E6SPOKK54KXYJNJRGNQW5F5IKMR4U4EP5KUSMMOEDFWFGTT6G';
+  // Navigate to the demo app with the updated contract (using cross-contract includes)
+  const CONTRACT_ID = 'CCBHO6AWVDW5U4VLDKSFJMGFD4FAPBYZ5IOZKJFNYVHVKO4Y43RZQ547';
   await page.goto(`http://localhost:5179/soroban-render/?contract=${CONTRACT_ID}`, { waitUntil: 'networkidle2' });
 
   // Wait for content to load
@@ -34,16 +34,21 @@ async function test() {
       bodyText: bodyText.substring(0, 2000),
       // Check if includes were resolved (should see header content, not the include tag)
       hasIncludeTag: bodyText.includes('{{include'),
-      hasHeader: bodyText.includes('Todo List') && bodyText.includes('demo app'),
-      hasFooter: bodyText.includes('Powered by') && bodyText.includes('Soroban Render'),
+      // Theme contract header says "Soroban App" and "Built with Soroban Render"
+      hasHeader: bodyText.includes('Soroban App') && bodyText.includes('Built with'),
+      // Theme contract footer says "Powered by Soroban Render" and "Stellar"
+      hasFooter: bodyText.includes('Powered by') && bodyText.includes('Stellar'),
+      // Theme contract nav has Home, Tasks, About links
+      hasNav: bodyText.includes('Home') && bodyText.includes('Tasks') && bodyText.includes('About'),
     };
   });
 
   console.log('\n=== Results ===');
   console.log('Has view:', result.hasView);
   console.log('Has include tags (should be false after resolution):', result.hasIncludeTag);
-  console.log('Has resolved header:', result.hasHeader);
-  console.log('Has resolved footer:', result.hasFooter);
+  console.log('Has resolved header (from theme contract):', result.hasHeader);
+  console.log('Has resolved nav (from theme contract):', result.hasNav);
+  console.log('Has resolved footer (from theme contract):', result.hasFooter);
 
   console.log('\n=== Body Preview ===');
   console.log(result.bodyText);
@@ -57,16 +62,21 @@ async function test() {
   }
 
   if (!result.hasHeader) {
-    console.log('\n\u274C FAIL: Header content not found!');
+    console.log('\n\u274C FAIL: Header content from theme contract not found!');
+    process.exit(1);
+  }
+
+  if (!result.hasNav) {
+    console.log('\n\u274C FAIL: Nav content from theme contract not found!');
     process.exit(1);
   }
 
   if (!result.hasFooter) {
-    console.log('\n\u274C FAIL: Footer content not found!');
+    console.log('\n\u274C FAIL: Footer content from theme contract not found!');
     process.exit(1);
   }
 
-  console.log('\n\u2714 PASS: Includes were resolved correctly!');
+  console.log('\n\u2714 PASS: Cross-contract includes were resolved correctly!');
 }
 
 test().catch(err => {

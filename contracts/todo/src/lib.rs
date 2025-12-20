@@ -195,16 +195,20 @@ impl TodoContract {
     fn render_task_list(env: &Env, tasks: &Map<u32, Task>, filter: Option<bool>) -> Bytes {
         let mut parts: Vec<Bytes> = Vec::new(env);
 
-        // Use self-referential include for header component
-        // This demonstrates the render_* convention: calls render_header(path, viewer)
-        parts.push_back(Bytes::from_slice(env, b"{{include contract=SELF func=\"header\"}}\n"));
+        // Use cross-contract include for header from theme contract
+        // This demonstrates composability: including components from another contract
+        // Testnet theme contract: CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD
+        parts.push_back(Bytes::from_slice(env, b"{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"header\"}}\n"));
+
+        // Use theme contract's navigation component
+        parts.push_back(Bytes::from_slice(env, b"{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"nav\"}}\n"));
 
         // Add task form
         parts.push_back(Bytes::from_slice(env, b"## Add Task\n\n"));
         parts.push_back(Bytes::from_slice(env, b"<input name=\"description\" type=\"text\" placeholder=\"Enter task description\" />\n\n"));
         parts.push_back(Bytes::from_slice(env, b"[Add Task](form:add_task)\n\n"));
 
-        // Filter navigation
+        // Filter navigation (app-specific)
         parts.push_back(Bytes::from_slice(env, b"## Filter\n\n"));
         parts.push_back(Bytes::from_slice(env, b"[All](render:/) | [Pending](render:/pending) | [Completed](render:/completed)\n\n"));
 
@@ -256,8 +260,8 @@ impl TodoContract {
             }
         }
 
-        // Use self-referential include for footer component
-        parts.push_back(Bytes::from_slice(env, b"{{include contract=SELF func=\"footer\"}}"));
+        // Use cross-contract include for footer from theme contract
+        parts.push_back(Bytes::from_slice(env, b"{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"footer\"}}"));
 
         Self::concat_bytes(env, &parts)
     }
@@ -586,8 +590,10 @@ mod test {
         }
         let output_str = core::str::from_utf8(&bytes_vec[..len]).unwrap();
         // Check for include tags (resolution happens on client side)
-        assert!(output_str.contains("{{include contract=SELF func=\"header\"}}"));
-        assert!(output_str.contains("{{include contract=SELF func=\"footer\"}}"));
+        // Using testnet theme contract ID: CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD
+        assert!(output_str.contains("{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"header\"}}"));
+        assert!(output_str.contains("{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"footer\"}}"));
+        assert!(output_str.contains("{{include contract=CAVPCBMMXSAM5C4URFZPGFE6G5UKW5C5HAMCSW7DM6CILISQM4NQTRVD func=\"nav\"}}"));
         // Check for task content
         assert!(output_str.contains("First task"));
         assert!(output_str.contains("Second task"));
