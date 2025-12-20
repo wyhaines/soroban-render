@@ -12,7 +12,7 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
-  apps/demo:
+  apps/viewer:
     dependencies:
       '@soroban-render/core':
         specifier: workspace:*

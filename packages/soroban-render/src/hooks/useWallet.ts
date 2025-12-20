@@ -74,10 +74,16 @@ export function useWallet(): UseWalletResult {
 
       const accessResult = await requestAccess();
       if (accessResult.error) {
+        // Ensure error is always a string (Freighter may return an object)
+        const errorMessage =
+          typeof accessResult.error === "string"
+            ? accessResult.error
+            : (accessResult.error as { message?: string })?.message ||
+              "Connection cancelled";
         setState((prev) => ({
           ...prev,
           connecting: false,
-          error: accessResult.error,
+          error: errorMessage,
         }));
         return;
       }

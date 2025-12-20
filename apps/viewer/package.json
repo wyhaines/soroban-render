@@ -1,7 +1,8 @@
 {
-  "name": "demo",
+  "name": "soroban-render-viewer",
   "version": "0.1.0",
   "private": true,
+  "description": "A generic viewer for any Soroban contract implementing the render() convention",
   "type": "module",
   "scripts": {
     "dev": "vite",

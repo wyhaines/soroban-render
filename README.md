@@ -2,13 +2,21 @@
 
 A community convention and library for self-contained, renderable Soroban dApps.
 
+## [View Live Demo](https://wyhaines.github.io/soroban-render/)
+
+The demo shows a fully functional Todo app where **the entire UI is defined by the smart contract itself**. The contract returns markdown with embedded forms and action links - no separate frontend code needed.
+
+---
+
 Inspired by [Gno.land's `Render()` function](https://docs.gno.land/concepts/realms#render), Soroban Render enables Soroban smart contracts to provide their own user interface, allowing developers to build simple, interactive dApps primarily within the contract itself.
 
 ## Features
 
 - **Contract-side `render()` convention** - Contracts return Markdown or JSON UI descriptions
+- **Interactive protocols** - `render:` for navigation, `tx:` for transactions, `form:` for form submissions
+- **Composability** - Contracts can include UI components from other contracts
 - **React library** - Hooks and components for rendering contract UIs
-- **Demo viewer** - Enter any contract ID to view its rendered interface
+- **Universal viewer** - Works with any contract that implements `render()`
 - **Local development** - Uses Stellar Quickstart Docker for fast iteration
 - **Testnet/Mainnet support** - Deploy anywhere Soroban runs
 
@@ -70,11 +78,12 @@ Open [http://localhost:5173](http://localhost:5173) and enter your contract ID.
 ```
 soroban-render/
 ├── contracts/
-│   └── todo/              # Example todo list contract
+│   ├── todo/              # Example todo list contract
+│   └── theme/             # Reusable UI components contract
 ├── packages/
 │   └── soroban-render/    # @soroban-render/core library
 ├── apps/
-│   └── demo/              # Demo viewer application
+│   └── viewer/            # Universal contract viewer
 ├── docker-compose.yml     # Local Stellar Quickstart
 └── package.json           # Workspace root
 ```
@@ -139,24 +148,36 @@ const markdown = await callRender(client, "CABC...XYZ", { path: "/task/1" });
 console.log(markdown);
 ```
 
-## Markdown Extensions (Planned)
+## Interactive Markdown
 
-The library will support extended Markdown syntax for interactive UIs:
+Contracts can return markdown with special protocols for interactivity:
 
 ```markdown
 # My Todo App
 
 ## Add Task
-[Add](form:add_task)
-- Description: <input name="desc" type="text" required />
+<input name="description" type="text" placeholder="Task description" />
+[Add Task](form:add_task)
 
 ## Tasks
-- [ ] Buy groceries [Done](tx:complete_task {"id":1})
+- [ ] Buy groceries [Done](tx:complete_task {"id":1}) [Delete](tx:delete_task {"id":1})
 - [x] ~~Walk the dog~~ (completed)
 
+## Navigation
+[All](render:/) | [Pending](render:/pending) | [Completed](render:/completed)
+
 ---
-{{include contract=CABC123... path="/footer"}}
+{{include contract=THEME_CONTRACT_ID func="footer"}}
 ```
+
+### Protocols
+
+| Protocol | Example | Description |
+|----------|---------|-------------|
+| `render:` | `[Link](render:/path)` | Navigate to a new path (re-renders contract) |
+| `tx:` | `[Click](tx:method {"arg":1})` | Submit a transaction |
+| `form:` | `[Submit](form:method)` | Submit form inputs as transaction args |
+| `{{include}}` | `{{include contract=ID func="name"}}` | Include UI from another contract |
 
 ## Development
 

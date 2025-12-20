@@ -40,9 +40,14 @@ Include these in your contract's render output:
 
     /// Render header component
     pub fn render_header(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
-        let output = "# Soroban App
+        let output = "# Todo List Demo
 
-*Built with Soroban Render*
+**This entire UI is rendered from a Soroban smart contract.**
+
+The contract defines its own interface using markdown with embedded forms and action links.
+The [Soroban Render Viewer](https://wyhaines.github.io/soroban-render/) fetches and displays it.
+
+[View Source on GitHub](https://github.com/wyhaines/soroban-render)
 
 ---
 
@@ -54,6 +59,12 @@ Include these in your contract's render output:
     pub fn render_footer(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
         let output = "
 ---
+
+### How This Works
+
+This UI comes directly from the smart contract's `render()` function. The contract returns markdown
+with special protocols (`render:`, `tx:`, `form:`) that enable navigation and transactions.
+No separate frontend deployment needed - the contract IS the app.
 
 *Powered by [Soroban Render](https://github.com/wyhaines/soroban-render)* | Built on [Stellar](https://stellar.org)
 ";
@@ -79,7 +90,7 @@ mod test {
         let env = Env::default();
         let result = ThemeContract::render_header(env.clone(), None, None);
 
-        let mut buf: [u8; 256] = [0; 256];
+        let mut buf: [u8; 512] = [0; 512];
         let len = result.len() as usize;
         for i in 0..len {
             if let Some(b) = result.get(i as u32) {
@@ -87,7 +98,8 @@ mod test {
             }
         }
         let result_str = core::str::from_utf8(&buf[..len]).unwrap();
-        assert!(result_str.contains("# Soroban App"));
+        assert!(result_str.contains("# Todo List Demo"));
+        assert!(result_str.contains("rendered from a Soroban smart contract"));
     }
 
     #[test]
@@ -95,7 +107,7 @@ mod test {
         let env = Env::default();
         let result = ThemeContract::render_footer(env.clone(), None, None);
 
-        let mut buf: [u8; 256] = [0; 256];
+        let mut buf: [u8; 512] = [0; 512];
         let len = result.len() as usize;
         for i in 0..len {
             if let Some(b) = result.get(i as u32) {
@@ -103,6 +115,7 @@ mod test {
             }
         }
         let result_str = core::str::from_utf8(&buf[..len]).unwrap();
+        assert!(result_str.contains("How This Works"));
         assert!(result_str.contains("Powered by"));
     }
 

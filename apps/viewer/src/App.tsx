@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
   createClient,
   useRender,
@@ -13,6 +13,71 @@ import {
 } from "@soroban-render/core";
 
 type Network = NetworkName | "custom";
+
+// Toast notification component
+interface ToastProps {
+  message: string;
+  type: "info" | "error" | "warning";
+  onClose: () => void;
+  autoClose?: number; // ms, 0 to disable
+}
+
+function Toast({ message, type, onClose, autoClose = 5000 }: ToastProps) {
+  const [isVisible, setIsVisible] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (autoClose > 0) {
+      timerRef.current = setTimeout(() => {
+        setIsVisible(false);
+        setTimeout(onClose, 300); // Wait for fade animation
+      }, autoClose);
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [autoClose, onClose]);
+
+  const bgColor = {
+    info: "bg-blue-50 border-blue-200",
+    error: "bg-red-50 border-red-200",
+    warning: "bg-yellow-50 border-yellow-200",
+  }[type];
+
+  const textColor = {
+    info: "text-blue-700",
+    error: "text-red-700",
+    warning: "text-yellow-700",
+  }[type];
+
+  const iconColor = {
+    info: "text-blue-400 hover:text-blue-600",
+    error: "text-red-400 hover:text-red-600",
+    warning: "text-yellow-400 hover:text-yellow-600",
+  }[type];
+
+  return (
+    <div
+      className={`${bgColor} border rounded-lg p-3 shadow-lg flex items-start gap-2 transition-all duration-300 ${
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
+      }`}
+    >
+      <p className={`${textColor} text-sm flex-1`}>{message}</p>
+      <button
+        onClick={() => {
+          setIsVisible(false);
+          setTimeout(onClose, 300);
+        }}
+        className={`${iconColor} transition-colors flex-shrink-0`}
+        aria-label="Dismiss"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  );
+}
 
 function getConfigFromUrl(): { contract?: string; network?: Network; path?: string } {
   const params = new URLSearchParams(window.location.search);
@@ -47,8 +112,18 @@ export default function App() {
   const [inputPath, setInputPath] = useState(preConfiguredPath);
   const [txPending, setTxPending] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
+  const [dismissedWalletError, setDismissedWalletError] = useState<string | null>(null);
 
   const wallet = useWallet();
+
+  // Reset dismissed wallet error when a new error occurs
+  useEffect(() => {
+    if (wallet.error && wallet.error !== dismissedWalletError) {
+      setDismissedWalletError(null);
+    }
+  }, [wallet.error, dismissedWalletError]);
+
+  const showWalletError = wallet.error && wallet.error !== dismissedWalletError;
 
   const client = useMemo((): SorobanClient | null => {
     if (network === "custom") {
@@ -137,23 +212,32 @@ export default function App() {
           </div>
         </header>
 
-        {/* Status messages */}
-        {(txPending || txError || wallet.error) && (
-          <div className="fixed top-4 left-4 right-24 z-10 space-y-2">
+        {/* Status messages - positioned in top-left, doesn't overlap wallet button */}
+        {(txPending || txError || showWalletError) && (
+          <div className="fixed top-4 left-4 z-10 space-y-2 max-w-sm">
             {txPending && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 shadow-sm">
-                <p className="text-blue-700 text-sm">Transaction pending...</p>
-              </div>
+              <Toast
+                message="Transaction pending..."
+                type="info"
+                onClose={() => {}} // Don't allow closing pending state
+                autoClose={0}
+              />
             )}
             {txError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 shadow-sm">
-                <p className="text-red-700 text-sm">{txError}</p>
-              </div>
+              <Toast
+                message={txError}
+                type="error"
+                onClose={() => setTxError(null)}
+                autoClose={8000}
+              />
             )}
-            {wallet.error && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 shadow-sm">
-                <p className="text-yellow-700 text-sm">{wallet.error}</p>
-              </div>
+            {showWalletError && (
+              <Toast
+                message={wallet.error!}
+                type="warning"
+                onClose={() => setDismissedWalletError(wallet.error)}
+                autoClose={5000}
+              />
             )}
           </div>
         )}
@@ -203,10 +287,10 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                Soroban Render
+                Soroban Render Viewer
               </h1>
               <p className="text-sm text-gray-600">
-                View self-contained Soroban dApp UIs
+                Universal viewer for any contract with render()
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -398,20 +482,33 @@ export default function App() {
           </div>
         </div>
 
-        {/* Transaction Status */}
-        {txPending && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <p className="text-blue-700">Transaction pending...</p>
-          </div>
-        )}
-        {txError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-            <p className="text-red-700">{txError}</p>
-          </div>
-        )}
-        {wallet.error && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-            <p className="text-yellow-700">{wallet.error}</p>
+        {/* Transaction Status - compact toasts */}
+        {(txPending || txError || showWalletError) && (
+          <div className="mb-4 space-y-2 max-w-md">
+            {txPending && (
+              <Toast
+                message="Transaction pending..."
+                type="info"
+                onClose={() => {}}
+                autoClose={0}
+              />
+            )}
+            {txError && (
+              <Toast
+                message={txError}
+                type="error"
+                onClose={() => setTxError(null)}
+                autoClose={8000}
+              />
+            )}
+            {showWalletError && (
+              <Toast
+                message={wallet.error!}
+                type="warning"
+                onClose={() => setDismissedWalletError(wallet.error)}
+                autoClose={5000}
+              />
+            )}
           </div>
         )}
 
@@ -470,16 +567,20 @@ export default function App() {
                 No Contract Loaded
               </h3>
               <p className="text-gray-600 max-w-md mx-auto">
-                Enter a Soroban contract ID above to render its UI. The contract
-                must implement the <code className="bg-gray-100 px-1 rounded">render()</code> function.
+                Enter any Soroban contract ID to render its UI. The contract
+                must implement the <code className="bg-gray-100 px-1 rounded">render()</code> convention.
               </p>
               <div className="mt-6 text-sm text-gray-500">
-                <p className="font-medium mb-2">Getting Started:</p>
-                <ol className="list-decimal list-inside text-left max-w-md mx-auto space-y-1">
-                  <li>Start local Stellar: <code className="bg-gray-100 px-1 rounded">pnpm docker:start</code></li>
-                  <li>Deploy the todo contract: <code className="bg-gray-100 px-1 rounded">pnpm contract:deploy</code></li>
-                  <li>Enter the contract ID above</li>
-                </ol>
+                <p className="font-medium mb-2">How it works:</p>
+                <p className="text-left max-w-md mx-auto mb-4">
+                  Contracts define their own UI by returning markdown or JSON from a{" "}
+                  <code className="bg-gray-100 px-1 rounded">render(path, viewer)</code> function.
+                  This viewer fetches and displays that UI, handling navigation and transactions.
+                </p>
+                <p className="font-medium mb-2">Try an example:</p>
+                <p className="text-left max-w-md mx-auto">
+                  Select <strong>Testnet</strong> above and enter a contract ID that implements render().
+                </p>
               </div>
             </div>
           )}
@@ -490,7 +591,7 @@ export default function App() {
       <footer className="border-t border-gray-200 mt-12 py-6">
         <div className="max-w-6xl mx-auto px-4 text-center text-sm text-gray-500">
           <p>
-            Soroban Render - A community convention for self-contained dApps
+            Soroban Render Viewer - Works with any contract implementing the render() convention
           </p>
           <p className="mt-1">
             <a
