@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { SorobanClient, callRender, RenderOptions } from "../utils/client";
 import { parseMarkdown, detectFormat } from "../parsers/markdown";
+import { parseJsonUI, JsonUIDocument } from "../parsers/json";
 
 export interface UseRenderResult {
   html: string | null;
   raw: string | null;
+  jsonDocument: JsonUIDocument | null;
   format: "markdown" | "json" | "unknown" | null;
   loading: boolean;
   error: string | null;
@@ -27,6 +29,7 @@ export function useRender(
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [html, setHtml] = useState<string | null>(null);
   const [raw, setRaw] = useState<string | null>(null);
+  const [jsonDocument, setJsonDocument] = useState<JsonUIDocument | null>(null);
   const [format, setFormat] = useState<"markdown" | "json" | "unknown" | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,18 +56,32 @@ export function useRender(
       if (detectedFormat === "markdown") {
         const renderedHtml = await parseMarkdown(content);
         setHtml(renderedHtml);
+        setJsonDocument(null);
       } else if (detectedFormat === "json") {
-        const jsonMd = "```json\n" + content + "\n```";
-        const renderedHtml = await parseMarkdown(jsonMd);
-        setHtml(renderedHtml);
+        const parseResult = parseJsonUI(content);
+        if (parseResult.success && parseResult.document) {
+          setJsonDocument(parseResult.document);
+          setHtml(null);
+        } else {
+          // If JSON parsing fails, show as code block
+          const jsonMd = "```json\n" + content + "\n```";
+          const renderedHtml = await parseMarkdown(jsonMd);
+          setHtml(renderedHtml);
+          setJsonDocument(null);
+          if (parseResult.error) {
+            setError(`JSON parse error: ${parseResult.error}`);
+          }
+        }
       } else {
         setHtml(`<pre>${content}</pre>`);
+        setJsonDocument(null);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to render contract";
       setError(message);
       setHtml(null);
       setRaw(null);
+      setJsonDocument(null);
       setFormat(null);
     } finally {
       setLoading(false);
@@ -80,6 +97,7 @@ export function useRender(
   return {
     html,
     raw,
+    jsonDocument,
     format,
     loading,
     error,

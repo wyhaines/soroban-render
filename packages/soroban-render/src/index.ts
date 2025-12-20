@@ -20,6 +20,26 @@ export {
 export { parseMarkdown, detectFormat } from "./parsers/markdown";
 
 export {
+  parseJsonUI,
+  isJsonFormat,
+  type JsonUIDocument,
+  type JsonComponent,
+  type HeadingComponent,
+  type TextComponent,
+  type MarkdownComponent,
+  type DividerComponent,
+  type FormComponent,
+  type ButtonComponent,
+  type ListComponent,
+  type TaskComponent,
+  type NavigationComponent,
+  type ContainerComponent,
+  type IncludeComponent,
+  type FormField,
+  type ParseJsonResult,
+} from "./parsers/json";
+
+export {
   useRender,
   useRenderSupport,
   type UseRenderResult,
@@ -42,6 +62,17 @@ export {
   InteractiveRenderView,
   type InteractiveRenderViewProps,
 } from "./components/InteractiveRenderView";
+
+export {
+  JsonRenderView,
+  jsonStyles,
+  type JsonRenderViewProps,
+} from "./components/JsonRenderView";
+
+export {
+  InteractiveJsonRenderView,
+  type InteractiveJsonRenderViewProps,
+} from "./components/InteractiveJsonRenderView";
 
 export {
   parseLink,

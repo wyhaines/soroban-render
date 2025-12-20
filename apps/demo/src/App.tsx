@@ -4,6 +4,8 @@ import {
   useRender,
   useWallet,
   InteractiveRenderView,
+  InteractiveJsonRenderView,
+  jsonStyles,
   Networks,
   type NetworkName,
   type SorobanClient,
@@ -57,7 +59,7 @@ export default function App() {
     return createClient(config.rpcUrl, config.networkPassphrase);
   }, [network, customRpcUrl]);
 
-  const { html, loading, error, path, setPath, refetch } = useRender(
+  const { html, jsonDocument, format, loading, error, path, setPath, refetch } = useRender(
     client,
     contractId || null,
     { path: inputPath || "/", viewer: wallet.address || undefined }
@@ -156,21 +158,38 @@ export default function App() {
           </div>
         )}
 
+        {/* JSON styles */}
+        <style>{jsonStyles}</style>
+
         {/* Full-page content */}
         <main className="p-8 pt-16">
-          <InteractiveRenderView
-            html={html}
-            loading={loading || txPending}
-            error={error}
-            className="prose prose-slate max-w-none"
-            client={client}
-            contractId={contractId || null}
-            walletAddress={wallet.address}
-            onPathChange={handlePathChange}
-            onTransactionStart={handleTransactionStart}
-            onTransactionComplete={handleTransactionComplete}
-            onError={handleError}
-          />
+          {format === "json" && jsonDocument ? (
+            <InteractiveJsonRenderView
+              document={jsonDocument}
+              className="prose prose-slate max-w-none"
+              client={client}
+              contractId={contractId || null}
+              walletAddress={wallet.address}
+              onPathChange={handlePathChange}
+              onTransactionStart={handleTransactionStart}
+              onTransactionComplete={handleTransactionComplete}
+              onError={handleError}
+            />
+          ) : (
+            <InteractiveRenderView
+              html={html}
+              loading={loading || txPending}
+              error={error}
+              className="prose prose-slate max-w-none"
+              client={client}
+              contractId={contractId || null}
+              walletAddress={wallet.address}
+              onPathChange={handlePathChange}
+              onTransactionStart={handleTransactionStart}
+              onTransactionComplete={handleTransactionComplete}
+              onError={handleError}
+            />
+          )}
         </main>
       </div>
     );
@@ -396,21 +415,38 @@ export default function App() {
           </div>
         )}
 
+        {/* JSON styles */}
+        <style>{jsonStyles}</style>
+
         {/* Rendered Content */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <InteractiveRenderView
-            html={html}
-            loading={loading || txPending}
-            error={error}
-            className="prose prose-slate max-w-none"
-            client={client}
-            contractId={contractId || null}
-            walletAddress={wallet.address}
-            onPathChange={handlePathChange}
-            onTransactionStart={handleTransactionStart}
-            onTransactionComplete={handleTransactionComplete}
-            onError={handleError}
-          />
+          {format === "json" && jsonDocument ? (
+            <InteractiveJsonRenderView
+              document={jsonDocument}
+              className="prose prose-slate max-w-none"
+              client={client}
+              contractId={contractId || null}
+              walletAddress={wallet.address}
+              onPathChange={handlePathChange}
+              onTransactionStart={handleTransactionStart}
+              onTransactionComplete={handleTransactionComplete}
+              onError={handleError}
+            />
+          ) : (
+            <InteractiveRenderView
+              html={html}
+              loading={loading || txPending}
+              error={error}
+              className="prose prose-slate max-w-none"
+              client={client}
+              contractId={contractId || null}
+              walletAddress={wallet.address}
+              onPathChange={handlePathChange}
+              onTransactionStart={handleTransactionStart}
+              onTransactionComplete={handleTransactionComplete}
+              onError={handleError}
+            />
+          )}
 
           {/* Empty State */}
           {!contractId && !loading && !error && (
