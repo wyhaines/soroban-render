@@ -76,3 +76,54 @@ body {
 .soroban-render-view img {
   @apply max-w-full h-auto rounded;
 }
+
+/* Form element styles */
+.soroban-render-view input[type="text"],
+.soroban-render-view input[type="email"],
+.soroban-render-view input[type="url"],
+.soroban-render-view input[type="number"],
+.soroban-render-view input[type="password"],
+.soroban-render-view input[type="search"],
+.soroban-render-view input[type="tel"],
+.soroban-render-view textarea {
+  @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  @apply text-base my-2;
+}
+
+.soroban-render-view textarea {
+  @apply min-h-[80px] resize-y;
+}
+
+.soroban-render-view select {
+  @apply px-3 py-2 border border-gray-300 rounded-md shadow-sm;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  @apply text-base my-2 bg-white;
+}
+
+.soroban-render-view input[type="checkbox"],
+.soroban-render-view input[type="radio"] {
+  @apply w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500;
+}
+
+.soroban-render-view label {
+  @apply block text-sm font-medium text-gray-700 mb-1;
+}
+
+/* Action links styled as buttons */
+.soroban-render-view a.soroban-action {
+  @apply inline-block px-4 py-2 bg-blue-600 text-white rounded-md;
+  @apply hover:bg-blue-700 no-underline font-medium;
+  @apply transition-colors duration-150;
+  @apply mr-2 my-1;
+}
+
+/* Secondary action variant */
+.soroban-render-view a.soroban-action.secondary {
+  @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+}
+
+/* Danger action variant */
+.soroban-render-view a.soroban-action[data-action*="delete"] {
+  @apply bg-red-600 hover:bg-red-700;
+}

@@ -81,11 +81,24 @@ function Toast({ message, type, onClose, autoClose = 5000 }: ToastProps) {
 
 function getConfigFromUrl(): { contract?: string; network?: Network; path?: string } {
   const params = new URLSearchParams(window.location.search);
+
+  // Support hash-based routing: #/about -> /about
+  const hashPath = window.location.hash ? window.location.hash.slice(1) : undefined;
+
   return {
     contract: params.get("contract") || undefined,
     network: (params.get("network") as Network) || undefined,
-    path: params.get("path") || undefined,
+    // Hash path takes precedence over query param
+    path: hashPath || params.get("path") || undefined,
   };
+}
+
+function updateHashPath(path: string) {
+  // Update URL hash without triggering a page reload
+  const newHash = path === "/" ? "" : `#${path}`;
+  if (window.location.hash !== newHash) {
+    window.history.pushState(null, "", newHash || window.location.pathname + window.location.search);
+  }
 }
 
 function getConfigFromEnv(): { contract?: string; network?: Network } {
@@ -158,9 +171,27 @@ export default function App() {
     (newPath: string) => {
       setPath(newPath);
       setInputPath(newPath);
+      // Update URL hash for shareable links
+      if (isEmbedded) {
+        updateHashPath(newPath);
+      }
     },
-    [setPath]
+    [setPath, isEmbedded]
   );
+
+  // Listen for browser back/forward navigation
+  useEffect(() => {
+    if (!isEmbedded) return;
+
+    const handlePopState = () => {
+      const hashPath = window.location.hash ? window.location.hash.slice(1) : "/";
+      setPath(hashPath);
+      setInputPath(hashPath);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [isEmbedded, setPath]);
 
   const handleTransactionStart = useCallback(() => {
     setTxPending(true);

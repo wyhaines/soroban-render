@@ -206,20 +206,21 @@ impl TodoContract {
             }
         }
 
+        // Additional route patterns
+        let tasks_pending_bytes = Bytes::from_slice(&env, b"/tasks/pending");
+        let tasks_completed_bytes = Bytes::from_slice(&env, b"/tasks/completed");
+
         // Route to appropriate page
         if path_bytes == home_bytes {
             return Self::render_home(&env, viewer.is_some());
         } else if path_bytes == about_bytes {
             return Self::render_about(&env);
-        } else if path_bytes == tasks_bytes || path_bytes == pending_bytes || path_bytes == completed_bytes {
-            let filter = if path_bytes == pending_bytes {
-                Some(false)
-            } else if path_bytes == completed_bytes {
-                Some(true)
-            } else {
-                None
-            };
-            return Self::render_task_list(&env, &tasks, filter, viewer.is_some());
+        } else if path_bytes == tasks_bytes {
+            return Self::render_task_list(&env, &tasks, None, viewer.is_some());
+        } else if path_bytes == tasks_pending_bytes || path_bytes == pending_bytes {
+            return Self::render_task_list(&env, &tasks, Some(false), viewer.is_some());
+        } else if path_bytes == tasks_completed_bytes || path_bytes == completed_bytes {
+            return Self::render_task_list(&env, &tasks, Some(true), viewer.is_some());
         }
 
         // Check for /task/:id pattern
@@ -351,12 +352,12 @@ impl TodoContract {
         } else {
             // Add task form
             parts.push_back(Bytes::from_slice(env, b"## Add Task\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"<input name=\"description\" type=\"text\" placeholder=\"Enter task description\" />\n\n"));
+            parts.push_back(Bytes::from_slice(env, b"<textarea name=\"description\" rows=\"2\" placeholder=\"What needs to be done?\"></textarea>\n\n"));
             parts.push_back(Bytes::from_slice(env, b"[Add Task](form:add_task)\n\n"));
 
             // Filter navigation (app-specific)
             parts.push_back(Bytes::from_slice(env, b"## Filter\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"[All](render:/) | [Pending](render:/pending) | [Completed](render:/completed)\n\n"));
+            parts.push_back(Bytes::from_slice(env, b"[All](render:/tasks) | [Pending](render:/tasks/pending) | [Completed](render:/tasks/completed)\n\n"));
 
             parts.push_back(Bytes::from_slice(env, b"## Your Tasks\n\n"));
 

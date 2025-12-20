@@ -77,6 +77,8 @@ export async function parseMarkdown(markdown: string): Promise<string> {
       "name", "type", "placeholder", "value", "required", "disabled",
       "checked", "selected", "readonly", "maxlength", "minlength",
       "min", "max", "step", "pattern", "for",
+      "rows", "cols", "size", "wrap",  // textarea/input sizing
+      "style",  // inline styling
       "data-*",
     ],
     ADD_ATTR: ["target", "rel"],
