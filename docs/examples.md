@@ -9,6 +9,7 @@ This guide walks through the example contracts included in the Soroban Render re
 | [Hello](#hello-contract) | Minimal | Viewer detection, conditional content |
 | [Theme](#theme-contract) | Simple | Reusable components, include system |
 | [Todo](#todo-contract) | Full | Routing, forms, state, CRUD, JSON format |
+| [Chunked Example](#chunked-example-contract) | Moderate | Progressive loading, soroban-chonk |
 
 
 ## Hello Contract
@@ -458,6 +459,173 @@ fn render_about(env: &Env) -> Bytes {
         .columns_end()
         .build()
 }
+```
+
+
+## Chunked Example Contract
+
+**Location:** `contracts/chunked-example/`
+
+Demonstrates progressive content loading using `soroban-chonk` for chunked storage. This pattern works well for content that exceeds comfortable single-response sizes, like comment threads or long articles.
+
+### Structure
+
+```rust
+#![no_std]
+use soroban_chonk::prelude::*;
+use soroban_render_sdk::prelude::*;
+use soroban_sdk::{contract, contractimpl, symbol_short, Address, Bytes, Env, String, Symbol};
+
+soroban_render!(markdown);
+
+#[contract]
+pub struct ChunkedExampleContract;
+
+#[contractimpl]
+impl ChunkedExampleContract {
+    /// Initialize with sample comments
+    pub fn init(env: Env) {
+        let comments = Chonk::open(&env, symbol_short!("comments"));
+
+        // Add 15 sample comments as pre-formatted markdown
+        let samples = [
+            "> **Alice**: Great post! This is really helpful.\n\n",
+            "> **Bob**: I have a question about the implementation.\n\n",
+            // ... more samples
+        ];
+
+        for sample in samples {
+            comments.push(Bytes::from_slice(&env, sample.as_bytes()));
+        }
+    }
+
+    /// Main render - shows first 5 comments with continuation for rest
+    pub fn render(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
+        let comments = Chonk::open(&env, symbol_short!("comments"));
+        let total = comments.count();
+
+        const IMMEDIATE: u32 = 5;
+
+        let mut builder = MarkdownBuilder::new(&env);
+
+        builder = builder
+            .h1("Chunked Content Demo")
+            .paragraph("This thread demonstrates progressive content loading.")
+            .hr()
+            .h2("Comments");
+
+        // Show first N comments immediately
+        let show = core::cmp::min(IMMEDIATE, total);
+        for i in 0..show {
+            if let Some(comment) = comments.get(i) {
+                builder = builder.raw(comment);
+            }
+        }
+
+        // Add continuation marker if more exist
+        if total > IMMEDIATE {
+            builder = builder
+                .paragraph("---")
+                .continuation("comments", IMMEDIATE, Some(total));
+        }
+
+        builder.hr().paragraph("*Powered by soroban-chonk*").build()
+    }
+
+    /// Get a single chunk (called by viewer for progressive loading)
+    pub fn get_chunk(env: Env, collection: Symbol, index: u32) -> Option<Bytes> {
+        Chonk::open(&env, collection).get(index)
+    }
+
+    /// Get chunk metadata
+    pub fn get_chunk_meta(env: Env, collection: Symbol) -> Option<ChonkMeta> {
+        let chonk = Chonk::open(&env, collection);
+        if chonk.count() > 0 {
+            Some(chonk.meta())
+        } else {
+            None
+        }
+    }
+}
+```
+
+### Key Patterns
+
+**1. Using soroban-chonk for Storage**
+
+The contract stores comments as chunks using `Chonk::open()`:
+
+```rust
+let comments = Chonk::open(&env, symbol_short!("comments"));
+comments.push(Bytes::from_slice(&env, content.as_bytes()));
+```
+
+**2. First-Paint-Fast Pattern**
+
+The `render()` function returns the first 5 comments immediately, then adds a continuation marker:
+
+```rust
+// Show first 5 immediately
+for i in 0..5.min(total) {
+    if let Some(comment) = comments.get(i) {
+        builder = builder.raw(comment);
+    }
+}
+
+// Continuation marker for remaining
+if total > 5 {
+    builder = builder.continuation("comments", 5, Some(total));
+}
+```
+
+This produces markdown like:
+```markdown
+# Chunked Content Demo
+
+## Comments
+
+> **Alice**: Great post!
+
+> **Bob**: I have a question.
+
+(... first 5 comments ...)
+
+---
+{{continue collection="comments" from=5 total=15}}
+```
+
+**3. get_chunk() Endpoint**
+
+The viewer calls this for each remaining chunk:
+
+```rust
+pub fn get_chunk(env: Env, collection: Symbol, index: u32) -> Option<Bytes> {
+    Chonk::open(&env, collection).get(index)
+}
+```
+
+**4. Optional Metadata**
+
+For progress indicators:
+
+```rust
+pub fn get_chunk_meta(env: Env, collection: Symbol) -> Option<ChonkMeta> {
+    let chonk = Chonk::open(&env, collection);
+    if chonk.count() > 0 {
+        Some(chonk.meta())  // { count, total_bytes, version }
+    } else {
+        None
+    }
+}
+```
+
+### Dependencies
+
+```toml
+[dependencies]
+soroban-sdk = "22.0.0"
+soroban-render-sdk = { path = "..." }
+soroban-chonk = { path = "..." }
 ```
 
 

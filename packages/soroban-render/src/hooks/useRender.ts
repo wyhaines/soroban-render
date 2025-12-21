@@ -4,6 +4,13 @@ import { parseMarkdown, detectFormat } from "../parsers/markdown";
 import { parseJsonUI, JsonUIDocument } from "../parsers/json";
 import { resolveIncludes } from "../utils/includeResolver";
 import { resolveStyles, StyleCacheEntry } from "../utils/styleResolver";
+import {
+  parseProgressiveTags,
+  hasProgressiveTags,
+  type ProgressiveTag,
+  type ContinuationTag,
+} from "../parsers/continuation";
+import { ProgressiveLoader } from "../utils/progressiveLoader";
 
 export interface UseRenderResult {
   html: string | null;
@@ -53,6 +60,21 @@ export interface UseRenderOptions extends RenderOptions {
    * Default: true
    */
   scopeStyles?: boolean;
+  /**
+   * Whether to resolve {{continue ...}} and {{chunk ...}} tags progressively.
+   * Default: true
+   */
+  resolveProgressive?: boolean;
+  /**
+   * Batch size for progressive loading (chunks per request).
+   * Default: 3
+   */
+  progressiveBatchSize?: number;
+  /**
+   * Maximum concurrent requests for progressive loading.
+   * Default: 2
+   */
+  progressiveMaxConcurrent?: number;
 }
 
 export function useRender(
@@ -70,6 +92,9 @@ export function useRender(
     styleCacheTtl = 60000,
     themeContractId,
     scopeStyles = true,
+    resolveProgressive: shouldResolveProgressive = true,
+    progressiveBatchSize = 3,
+    progressiveMaxConcurrent = 2,
   } = options;
 
   const [currentPath, setCurrentPath] = useState(initialPath);
@@ -88,6 +113,12 @@ export function useRender(
   // Cache for style resolution (persists across renders)
   const styleCacheRef = useRef<Map<string, StyleCacheEntry>>(new Map());
 
+  // Progressive loader ref (for cleanup)
+  const progressiveLoaderRef = useRef<ProgressiveLoader | null>(null);
+
+  // Store progressive tags for chunk loading
+  const progressiveTagsRef = useRef<ProgressiveTag[]>([]);
+
   useEffect(() => {
     setCurrentPath(initialPath);
   }, [initialPath]);
@@ -95,6 +126,12 @@ export function useRender(
   const fetchRender = useCallback(async () => {
     if (!client || !contractId) {
       return;
+    }
+
+    // Abort any existing progressive loader
+    if (progressiveLoaderRef.current) {
+      progressiveLoaderRef.current.abort();
+      progressiveLoaderRef.current = null;
     }
 
     setLoading(true);
@@ -138,9 +175,114 @@ export function useRender(
       setFormat(detectedFormat);
 
       if (detectedFormat === "markdown") {
-        const renderedHtml = await parseMarkdown(content);
+        // Parse progressive tags before converting to HTML
+        let processedContent = content;
+        let progressiveTags: ProgressiveTag[] = [];
+
+        if (shouldResolveProgressive && hasProgressiveTags(content)) {
+          const parsed = parseProgressiveTags(content);
+          processedContent = parsed.content;
+          progressiveTags = parsed.tags;
+          progressiveTagsRef.current = progressiveTags;
+        } else {
+          progressiveTagsRef.current = [];
+        }
+
+        const renderedHtml = await parseMarkdown(processedContent);
         setHtml(renderedHtml);
         setJsonDocument(null);
+
+        // Start progressive loading in background
+        if (shouldResolveProgressive && progressiveTags.length > 0) {
+          // Track loaded chunks for continuation tags (accumulate content)
+          const continuationContent: Map<string, string[]> = new Map();
+
+          // Initialize continuation content arrays
+          for (const tag of progressiveTags) {
+            if (tag.type === "continue") {
+              const contTag = tag as ContinuationTag;
+              const key = `continue-${contTag.collection}-${contTag.from ?? 0}`;
+              continuationContent.set(key, []);
+            }
+          }
+
+          const loader = new ProgressiveLoader({
+            contractId,
+            client,
+            batchSize: progressiveBatchSize,
+            maxConcurrent: progressiveMaxConcurrent,
+            onChunkLoaded: async (collection, index, chunkContent) => {
+              // Skip empty chunks
+              if (!chunkContent) return;
+
+              // Parse the chunk as markdown
+              const chunkHtml = await parseMarkdown(chunkContent);
+
+              // Check if this belongs to a continuation tag
+              let belongsToContinuation = false;
+              let continuationKey = "";
+
+              for (const tag of progressiveTags) {
+                if (tag.type === "continue") {
+                  const contTag = tag as ContinuationTag;
+                  if (contTag.collection === collection) {
+                    const from = contTag.from ?? 0;
+                    const total = contTag.total;
+                    if (index >= from && (total === undefined || index < total)) {
+                      belongsToContinuation = true;
+                      continuationKey = `continue-${collection}-${from}`;
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (belongsToContinuation && continuationKey) {
+                // Accumulate content for continuation tag
+                const chunks = continuationContent.get(continuationKey) || [];
+                chunks[index] = chunkHtml; // Use index for ordering
+                continuationContent.set(continuationKey, chunks);
+
+                // Update HTML by replacing continuation placeholder with accumulated content
+                setHtml((prevHtml) => {
+                  if (!prevHtml) return prevHtml;
+
+                  // Join all loaded chunks in order
+                  const orderedContent = chunks.filter(Boolean).join("\n");
+
+                  // Replace the continuation placeholder
+                  const placeholderRegex = new RegExp(
+                    `<div[^>]*data-progressive-id="${continuationKey}"[^>]*>.*?</div>`,
+                    "s"
+                  );
+                  return prevHtml.replace(placeholderRegex, orderedContent);
+                });
+              } else {
+                // Regular chunk tag - replace placeholder directly
+                setHtml((prevHtml) => {
+                  if (!prevHtml) return prevHtml;
+
+                  const tagId = `chunk-${collection}-${index}`;
+                  const placeholderRegex = new RegExp(
+                    `<div[^>]*data-progressive-id="${tagId}"[^>]*>.*?</div>`,
+                    "s"
+                  );
+                  return prevHtml.replace(placeholderRegex, chunkHtml);
+                });
+              }
+            },
+            onError: (err) => {
+              console.error("Progressive loading error:", err);
+            },
+          });
+
+          progressiveLoaderRef.current = loader;
+
+          // Just pass the original tags - the loader will expand continuation tags
+          loader.loadTags(progressiveTags).catch((err) => {
+            console.error("Progressive loading failed:", err);
+          });
+        }
       } else if (detectedFormat === "json") {
         const parseResult = parseJsonUI(content);
         if (parseResult.success && parseResult.document) {
@@ -172,7 +314,7 @@ export function useRender(
     } finally {
       setLoading(false);
     }
-  }, [client, contractId, currentPath, viewer, shouldResolveIncludes, includeCacheTtl, shouldResolveStyles, styleCacheTtl, themeContractId, scopeStyles]);
+  }, [client, contractId, currentPath, viewer, shouldResolveIncludes, includeCacheTtl, shouldResolveStyles, styleCacheTtl, themeContractId, scopeStyles, shouldResolveProgressive, progressiveBatchSize, progressiveMaxConcurrent]);
 
   useEffect(() => {
     if (enabled) {

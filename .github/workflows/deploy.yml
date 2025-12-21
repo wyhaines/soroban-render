@@ -29,7 +29,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown,wasm32v1-none
 
       - name: Install system dependencies
         run: |
@@ -51,41 +51,70 @@ jobs:
           # Fund via Friendbot (ignore errors if already funded)
           curl -s "https://friendbot.stellar.org?addr=$PUBLIC_KEY" || true
 
+      # Build all contracts
       - name: Build theme contract
         run: |
           cd contracts/theme
-          cargo build --release --target wasm32-unknown-unknown
+          stellar contract build
+
+      - name: Build hello contract
+        run: |
+          cd contracts/hello
+          stellar contract build
 
       - name: Build todo contract (initial)
         run: |
           cd contracts/todo
-          cargo build --release --target wasm32-unknown-unknown
+          stellar contract build
 
+      - name: Build chunked-example contract
+        run: |
+          cd contracts/chunked-example
+          stellar contract build
+
+      - name: Build homepage contract
+        run: |
+          cd contracts/homepage
+          stellar contract build
+
+      # Deploy theme first (needed by todo)
       - name: Deploy theme contract
         id: deploy-theme
         env:
           STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
         run: |
           THEME_ID=$(stellar contract deploy \
-            --wasm contracts/theme/target/wasm32-unknown-unknown/release/soroban_render_theme.wasm \
+            --wasm contracts/theme/target/wasm32v1-none/release/soroban_render_theme.wasm \
             --network testnet \
             --source "$STELLAR_SECRET_KEY")
           echo "contract_id=$THEME_ID" >> $GITHUB_OUTPUT
           echo "Theme contract deployed: $THEME_ID"
 
+      # Update todo contract with theme ID and rebuild
       - name: Update todo contract with theme ID
         run: |
           THEME_ID="${{ steps.deploy-theme.outputs.contract_id }}"
           echo "Patching todo contract with theme ID: $THEME_ID"
-          # Replace any 56-character contract ID after "{{include contract=" with the new theme ID
           sed -i "s/{{include contract=[A-Z0-9]\{56\}/{{include contract=$THEME_ID/g" contracts/todo/src/lib.rs
-          # Verify the change
           grep -o "{{include contract=[A-Z0-9]*" contracts/todo/src/lib.rs | head -1
 
       - name: Rebuild todo contract with new theme ID
         run: |
           cd contracts/todo
-          cargo build --release --target wasm32-unknown-unknown
+          stellar contract build
+
+      # Deploy all demo contracts
+      - name: Deploy hello contract
+        id: deploy-hello
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          HELLO_ID=$(stellar contract deploy \
+            --wasm contracts/hello/target/wasm32v1-none/release/soroban_render_hello.wasm \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY")
+          echo "contract_id=$HELLO_ID" >> $GITHUB_OUTPUT
+          echo "Hello contract deployed: $HELLO_ID"
 
       - name: Deploy todo contract
         id: deploy-todo
@@ -93,12 +122,37 @@ jobs:
           STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
         run: |
           TODO_ID=$(stellar contract deploy \
-            --wasm contracts/todo/target/wasm32-unknown-unknown/release/soroban_render_todo.wasm \
+            --wasm contracts/todo/target/wasm32v1-none/release/soroban_render_todo.wasm \
             --network testnet \
             --source "$STELLAR_SECRET_KEY")
           echo "contract_id=$TODO_ID" >> $GITHUB_OUTPUT
           echo "Todo contract deployed: $TODO_ID"
 
+      - name: Deploy chunked-example contract
+        id: deploy-chunked
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          CHUNKED_ID=$(stellar contract deploy \
+            --wasm contracts/chunked-example/target/wasm32v1-none/release/chunked_example.wasm \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY")
+          echo "contract_id=$CHUNKED_ID" >> $GITHUB_OUTPUT
+          echo "Chunked-example contract deployed: $CHUNKED_ID"
+
+      - name: Deploy homepage contract
+        id: deploy-homepage
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          HOMEPAGE_ID=$(stellar contract deploy \
+            --wasm contracts/homepage/target/wasm32v1-none/release/soroban_render_homepage.wasm \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY")
+          echo "contract_id=$HOMEPAGE_ID" >> $GITHUB_OUTPUT
+          echo "Homepage contract deployed: $HOMEPAGE_ID"
+
+      # Initialize contracts
       - name: Initialize todo contract
         env:
           STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
@@ -109,6 +163,86 @@ jobs:
             --source "$STELLAR_SECRET_KEY" \
             -- init || echo "Init may have already been called"
 
+      - name: Initialize chunked-example contract
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          stellar contract invoke \
+            --id ${{ steps.deploy-chunked.outputs.contract_id }} \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY" \
+            -- init || echo "Init may have already been called"
+
+      # Initialize homepage and add all demos
+      - name: Initialize homepage contract
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          stellar contract invoke \
+            --id ${{ steps.deploy-homepage.outputs.contract_id }} \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY" \
+            -- init \
+            --viewer_url "https://wyhaines.github.io/soroban-render/" \
+            --network "testnet"
+
+      - name: Add Hello demo to homepage
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          stellar contract invoke \
+            --id ${{ steps.deploy-homepage.outputs.contract_id }} \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY" \
+            -- add_demo \
+            --name "Hello World" \
+            --description "The simplest renderable contract. Detects wallet connection and shows personalized greeting." \
+            --contract_id "${{ steps.deploy-hello.outputs.contract_id }}" \
+            --features "Minimal example, viewer detection, conditional content"
+
+      - name: Add Todo demo to homepage
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          stellar contract invoke \
+            --id ${{ steps.deploy-homepage.outputs.contract_id }} \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY" \
+            -- add_demo \
+            --name "Todo App" \
+            --description "Full-featured todo list with per-user task storage. Add, complete, and delete tasks." \
+            --contract_id "${{ steps.deploy-todo.outputs.contract_id }}" \
+            --features "Routing, forms, CRUD, JSON format, charts, per-user storage"
+
+      - name: Add Theme demo to homepage
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          stellar contract invoke \
+            --id ${{ steps.deploy-homepage.outputs.contract_id }} \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY" \
+            -- add_demo \
+            --name "Theme Components" \
+            --description "Reusable UI components that other contracts can include. Header, footer, and navigation." \
+            --contract_id "${{ steps.deploy-theme.outputs.contract_id }}" \
+            --features "Component library, cross-contract includes, CSS styling"
+
+      - name: Add Progressive Loading demo to homepage
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          stellar contract invoke \
+            --id ${{ steps.deploy-homepage.outputs.contract_id }} \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY" \
+            -- add_demo \
+            --name "Progressive Loading" \
+            --description "Demonstrates chunked content with progressive loading. First 5 comments load instantly, rest load in background." \
+            --contract_id "${{ steps.deploy-chunked.outputs.contract_id }}" \
+            --features "soroban-chonk storage, continuation markers, progressive rendering"
+
+      # Build the viewer
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
@@ -131,8 +265,8 @@ jobs:
         run: |
           cat > apps/viewer/.env.production << EOF
           # Auto-generated by GitHub Actions
-          # Theme contract: ${{ steps.deploy-theme.outputs.contract_id }}
-          VITE_CONTRACT_ID=${{ steps.deploy-todo.outputs.contract_id }}
+          # Homepage contract that links to all demos
+          VITE_CONTRACT_ID=${{ steps.deploy-homepage.outputs.contract_id }}
           VITE_NETWORK=testnet
           EOF
           echo "Generated .env.production:"

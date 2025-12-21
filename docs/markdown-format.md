@@ -228,6 +228,124 @@ Optional third column.
 - Columns separated by `|||`
 
 
+## Progressive Content Loading
+
+For content that exceeds comfortable single-response sizes, use continuation markers to enable progressive loading. The viewer fetches the initial content immediately and loads remaining chunks in the background.
+
+### Continuation Markers
+
+Signal that more content should be loaded from a chunk collection:
+
+```markdown
+# Comments (showing first 5)
+
+> **Alice**: Great post!
+
+> **Bob**: I have a question.
+
+...first 5 comments...
+
+{{continue collection="comments" from=5 total=50}}
+```
+
+**With the SDK:**
+```rust
+.continuation("comments", 5, Some(50))
+// Output: {{continue collection="comments" from=5 total=50}}
+
+// Without total count:
+.continuation("comments", 5, None)
+// Output: {{continue collection="comments" from=5}}
+```
+
+The viewer detects this marker and calls `get_chunk()` for indices 5, 6, 7... until all content loads.
+
+### Chunk References
+
+Reference a specific chunk inline:
+
+```markdown
+## Article Body
+
+{{chunk collection="article" index=0}}
+
+## Comments
+
+{{chunk collection="comments" index=0 placeholder="Loading comments..."}}
+```
+
+**With the SDK:**
+```rust
+.chunk_ref("article", 0)
+// Output: {{chunk collection="article" index=0}}
+
+.chunk_ref_placeholder("comments", 0, "Loading comments...")
+// Output: {{chunk collection="comments" index=0 placeholder="Loading comments..."}}
+```
+
+### Paginated Continuation
+
+For page-based navigation:
+
+```markdown
+## Comments (page 2 of 5)
+
+{{continue collection="comments" page=2 per_page=10 total=47}}
+```
+
+**With the SDK:**
+```rust
+.continue_page("comments", 2, 10, 47)
+// Output: {{continue collection="comments" page=2 per_page=10 total=47}}
+```
+
+### Contract Implementation
+
+Contracts using continuation markers must implement `get_chunk()`:
+
+```rust
+use soroban_chonk::prelude::*;
+
+// Main render - returns first N items with continuation marker
+pub fn render(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
+    let comments = Chonk::open(&env, symbol_short!("comments"));
+    let total = comments.count();
+
+    let mut builder = MarkdownBuilder::new(&env);
+    builder = builder.h1("Comments");
+
+    // Show first 5 immediately
+    for i in 0..5.min(total) {
+        if let Some(chunk) = comments.get(i) {
+            builder = builder.raw(chunk);
+        }
+    }
+
+    // Add continuation for the rest
+    if total > 5 {
+        builder = builder.continuation("comments", 5, Some(total));
+    }
+
+    builder.build()
+}
+
+// Called by viewer for each remaining chunk
+pub fn get_chunk(env: Env, collection: Symbol, index: u32) -> Option<Bytes> {
+    Chonk::open(&env, collection).get(index)
+}
+
+// Optional: metadata for progress indicators
+pub fn get_chunk_meta(env: Env, collection: Symbol) -> Option<ChonkMeta> {
+    let chonk = Chonk::open(&env, collection);
+    if chonk.count() > 0 {
+        Some(chonk.meta())
+    } else {
+        None
+    }
+}
+```
+
+
 ## Cross-Contract Includes
 
 Include UI components from other contracts:

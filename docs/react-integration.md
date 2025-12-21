@@ -337,6 +337,138 @@ Process transaction results:
 ```
 
 
+## Progressive Content Loading
+
+For contracts that use chunked content storage, the library provides automatic progressive loading. Content with continuation markers loads immediately, and remaining chunks fetch in the background.
+
+### useProgressiveRender
+
+Handles progressive loading of chunked content:
+
+```typescript
+const {
+  content,        // Current content (updates as chunks load)
+  initialContent, // Content before progressive loading
+  isLoading,      // Whether chunks are still loading
+  loadedChunks,   // Number of loaded chunks
+  totalChunks,    // Total chunks (if known)
+  progress,       // 0-1 progress value
+  errors,         // Array of any errors
+  tags,           // Parsed progressive tags
+  hasProgressive, // Whether content has progressive tags
+  load,           // Manual load trigger
+  cancel,         // Cancel pending loads
+  reset,          // Reset to initial state
+} = useProgressiveRender({
+  contractId: "CABC...XYZ",
+  client: sorobanClient,
+  initialContent: renderResult,
+  autoLoad: true,     // Default: true
+  batchSize: 3,       // Chunks per batch
+  maxConcurrent: 2,   // Parallel requests
+});
+```
+
+**Example usage:**
+
+```tsx
+function ThreadView({ contractId }: { contractId: string }) {
+  const client = createClient(rpcUrl, networkPassphrase);
+  const { html } = useRender(client, contractId);
+
+  const {
+    content,
+    isLoading,
+    progress,
+    hasProgressive,
+  } = useProgressiveRender({
+    contractId,
+    client,
+    initialContent: html || "",
+  });
+
+  return (
+    <div>
+      <RenderView html={content} loading={!html} />
+      {hasProgressive && isLoading && (
+        <div className="loading-bar">
+          Loading... {Math.round(progress * 100)}%
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Progressive Loading Flow
+
+1. Contract returns content with continuation markers:
+   ```markdown
+   # Comments
+   > First comment...
+   > Second comment...
+   {{continue collection="comments" from=2 total=50}}
+   ```
+
+2. `useProgressiveRender` parses the marker and replaces it with a placeholder div
+
+3. The hook calls `get_chunk(collection, index)` for each remaining chunk
+
+4. Content updates as chunks arrive, replacing placeholders with actual content
+
+### Manual Control
+
+Disable auto-loading for on-demand loading:
+
+```tsx
+const { content, load, isLoading } = useProgressiveRender({
+  contractId,
+  client,
+  initialContent: html,
+  autoLoad: false,
+});
+
+return (
+  <div>
+    <RenderView html={content} />
+    {!isLoading && (
+      <button onClick={load}>Load More Comments</button>
+    )}
+  </div>
+);
+```
+
+### Direct API Usage
+
+For non-React applications:
+
+```typescript
+import {
+  parseProgressiveTags,
+  hasProgressiveTags,
+  ProgressiveLoader
+} from "@soroban-render/core";
+
+// Check for progressive content
+if (hasProgressiveTags(content)) {
+  const parsed = parseProgressiveTags(content);
+
+  const loader = new ProgressiveLoader({
+    contractId,
+    client,
+    onChunkLoaded: (collection, index, chunkContent) => {
+      console.log(`Loaded ${collection}[${index}]`);
+    },
+    onProgress: (loaded, total) => {
+      console.log(`Progress: ${loaded}/${total}`);
+    },
+  });
+
+  await loader.loadTags(parsed.tags);
+}
+```
+
+
 ## Include Resolution
 
 The library automatically resolves `{{include}}` tags:

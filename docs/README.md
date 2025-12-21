@@ -20,7 +20,7 @@ Welcome to the Soroban Render documentation. This guide will help you understand
 
 ### Format References
 
-- [Markdown Format](./markdown-format.md) - Interactive markdown syntax
+- [Markdown Format](./markdown-format.md) - Interactive markdown syntax (includes progressive loading)
 - [JSON Format](./json-format.md) - Structured UI definitions
 
 ### Guides

@@ -2,7 +2,7 @@
 
 **Self-contained, renderable dApps on Stellar's Soroban platform.**
 
-[Live Demo](https://wyhaines.github.io/soroban-render/) | [Documentation](./docs/README.md)
+[Live Demos](https://wyhaines.github.io/soroban-render/) | [Documentation](./docs/README.md)
 
 What if your smart contract could render its own UI? No separate frontend to build, deploy, or maintain. Just the contract.
 
@@ -117,13 +117,13 @@ Use the [@soroban-render/core](https://www.npmjs.com/package/@soroban-render/cor
 
 ## Quick Start
 
-### View an Existing Contract
+### View the Live Demos
 
-The todo demo is already deployed. Just visit:
+Several example contracts are deployed on testnet. Just visit:
 
 **https://wyhaines.github.io/soroban-render/**
 
-Select "Testnet" and it loads automatically. No setup required.
+The viewer auto-loads a homepage contract that links to all the example demos. The homepage itself is a Soroban contract.
 
 ### Build Your Own Contract
 
@@ -225,16 +225,18 @@ function App() {
 ```
 soroban-render/
 ├── contracts/
-│   ├── hello/     # Minimal hello world example
-│   ├── todo/      # Full-featured todo app
-│   └── theme/     # Reusable UI components
+│   ├── hello/           # Minimal hello world example
+│   ├── todo/            # Full-featured todo app
+│   ├── theme/           # Reusable UI components
+│   ├── chunked-example/ # Progressive content loading demo
+│   └── homepage/        # Demo portal (links to all examples)
 ├── packages/
 │   └── soroban-render/  # @soroban-render/core library
 ├── apps/
-│   └── viewer/    # Universal contract viewer
+│   └── viewer/          # Universal contract viewer
 ├── templates/
 │   └── viewer-deploy/   # Fork-and-deploy viewer template
-└── docs/          # Documentation
+└── docs/                # Documentation
 ```
 
 

@@ -135,3 +135,28 @@ export {
   type StyleResolveResult,
   type StyleCacheEntry,
 } from "./utils/styleResolver";
+
+export {
+  parseProgressiveTags,
+  hasProgressiveTags,
+  createTagId,
+  createChunkKey,
+  type ContinuationTag,
+  type ChunkTag,
+  type ProgressiveTag,
+  type ParsedProgressiveContent,
+} from "./parsers/continuation";
+
+export {
+  ProgressiveLoader,
+  createProgressiveLoader,
+  type ProgressiveLoaderOptions,
+  type ChunkResult,
+  type ChunkMeta,
+} from "./utils/progressiveLoader";
+
+export {
+  useProgressiveRender,
+  type UseProgressiveRenderOptions,
+  type UseProgressiveRenderResult,
+} from "./hooks/useProgressiveRender";

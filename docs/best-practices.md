@@ -392,6 +392,61 @@ fn render_task(env: &Env, tasks: &Map<u32, Task>, id: u32) -> Bytes {
 ```
 
 
+## Progressive Loading
+
+For content that exceeds comfortable single-response sizes, use chunked storage and continuation markers.
+
+### When to Use Progressive Loading
+
+- Comment threads with 10+ entries
+- Long-form articles (> 10KB)
+- Paginated lists
+- Media galleries
+
+### First-Paint-Fast Pattern
+
+Show initial content immediately, load the rest in the background:
+
+```rust
+use soroban_chonk::prelude::*;
+
+pub fn render(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
+    let comments = Chonk::open(&env, symbol_short!("comments"));
+    let total = comments.count();
+
+    let mut builder = MarkdownBuilder::new(&env)
+        .h1("Comments");
+
+    // Render first 5 immediately (fast first paint)
+    for i in 0..5.min(total) {
+        if let Some(chunk) = comments.get(i) {
+            builder = builder.raw(chunk);
+        }
+    }
+
+    // Add continuation for remaining
+    if total > 5 {
+        builder = builder.continuation("comments", 5, Some(total));
+    }
+
+    builder.build()
+}
+
+// Viewer calls this for remaining chunks
+pub fn get_chunk(env: Env, collection: Symbol, index: u32) -> Option<Bytes> {
+    Chonk::open(&env, collection).get(index)
+}
+```
+
+### Chunk Size Guidelines
+
+| Content Type | Recommended Size | Rationale |
+|--------------|------------------|-----------|
+| Comments/replies | 1 item per chunk | Natural edit boundaries |
+| Long-form text | 4-8 KB | Balance calls vs. size |
+| Structured data | 2-4 KB | Keep logical units together |
+
+
 ## Related Documentation
 
 - [Rust SDK Reference](./rust-sdk.md) - API details

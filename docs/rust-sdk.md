@@ -273,6 +273,34 @@ HTML form inputs for use with `form:` links:
 // Output: <textarea name="description" rows="3" placeholder="Enter description"></textarea>
 ```
 
+### Progressive Loading
+
+For chunked content with `soroban-chonk`:
+
+```rust
+// Continuation marker - load remaining chunks from index
+.continuation("comments", 5, Some(50))
+// Output: {{continue collection="comments" from=5 total=50}}
+
+// Without total count
+.continuation("comments", 5, None)
+// Output: {{continue collection="comments" from=5}}
+
+// Inline chunk reference
+.chunk_ref("article", 0)
+// Output: {{chunk collection="article" index=0}}
+
+// Chunk reference with placeholder text
+.chunk_ref_placeholder("comments", 3, "Loading...")
+// Output: {{chunk collection="comments" index=3 placeholder="Loading..."}}
+
+// Paginated continuation
+.continue_page("comments", 2, 10, 47)
+// Output: {{continue collection="comments" page=2 per_page=10 total=47}}
+```
+
+The viewer detects these markers and calls `get_chunk()` to load remaining content. See [Markdown Format - Progressive Loading](./markdown-format.md#progressive-content-loading) for syntax details.
+
 ### Lists
 
 ```rust
@@ -289,6 +317,13 @@ HTML form inputs for use with `form:` links:
 // Output:
 // - [ ] Unchecked task
 // - [x] Completed task
+```
+
+### Blockquotes
+
+```rust
+.blockquote("Quoted text here")
+// Output: > Quoted text here
 ```
 
 ### Utilities

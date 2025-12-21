@@ -331,6 +331,145 @@ type ChartComponent =
 ```
 
 
+## Progressive Loading
+
+These functions handle continuation markers (`{{continue}}` and `{{chunk}}` tags) for loading chunked content progressively. The `useProgressiveRender` hook wraps these utilities for React applications.
+
+### parseProgressiveTags
+
+Parses content for continuation and chunk tags.
+
+```typescript
+function parseProgressiveTags(content: string): ParsedProgressiveContent;
+
+interface ParsedProgressiveContent {
+  content: string;       // Content with tags replaced by placeholder divs
+  tags: ProgressiveTag[];  // All tags found
+  hasProgressive: boolean; // Whether any tags were found
+}
+
+type ProgressiveTag = ContinuationTag | ChunkTag;
+
+interface ContinuationTag {
+  type: "continue";
+  collection: string;
+  from?: number;
+  page?: number;
+  perPage?: number;
+  total?: number;
+  position: number;
+  length: number;
+}
+
+interface ChunkTag {
+  type: "chunk";
+  collection: string;
+  index: number;
+  placeholder?: string;
+  position: number;
+  length: number;
+}
+```
+
+### hasProgressiveTags
+
+Quick check for continuation markers.
+
+```typescript
+function hasProgressiveTags(content: string): boolean;
+```
+
+### createTagId
+
+Creates a unique ID for a placeholder element.
+
+```typescript
+function createTagId(tag: ProgressiveTag): string;
+// "chunk-comments-5" or "continue-comments-5"
+```
+
+### createChunkKey
+
+Creates a cache key for a chunk.
+
+```typescript
+function createChunkKey(collection: string, index: number): string;
+// "comments:5"
+```
+
+### ProgressiveLoader
+
+Class for loading chunked content from contracts.
+
+```typescript
+class ProgressiveLoader {
+  constructor(options: ProgressiveLoaderOptions);
+
+  loadChunk(collection: string, index: number): Promise<string>;
+  getChunkMeta(collection: string): Promise<ChunkMeta | null>;
+  loadTags(tags: ProgressiveTag[]): Promise<ChunkResult[]>;
+  abort(): void;
+  reset(): void;
+}
+
+interface ProgressiveLoaderOptions {
+  contractId: string;
+  client: SorobanClient;
+  batchSize?: number;       // Default: 3
+  maxConcurrent?: number;   // Default: 2
+  onChunkLoaded?: (collection: string, index: number, content: string) => void;
+  onProgress?: (loaded: number, total: number) => void;
+  onError?: (error: Error) => void;
+}
+
+interface ChunkMeta {
+  count: number;
+  totalBytes: number;
+  version: number;
+}
+
+interface ChunkResult {
+  collection: string;
+  index: number;
+  content: string;
+}
+```
+
+### useProgressiveRender
+
+React hook for progressive content loading.
+
+```typescript
+function useProgressiveRender(
+  options: UseProgressiveRenderOptions
+): UseProgressiveRenderResult;
+
+interface UseProgressiveRenderOptions {
+  contractId: string;
+  client: SorobanClient;
+  initialContent: string;
+  autoLoad?: boolean;       // Default: true
+  batchSize?: number;       // Default: 3
+  maxConcurrent?: number;   // Default: 2
+}
+
+interface UseProgressiveRenderResult {
+  content: string;
+  initialContent: string;
+  isLoading: boolean;
+  loadedChunks: number;
+  totalChunks: number | null;
+  progress: number;
+  errors: Error[];
+  tags: ProgressiveTag[];
+  hasProgressive: boolean;
+  load: () => Promise<void>;
+  cancel: () => void;
+  reset: () => void;
+}
+```
+
+
 ## Include System
 
 These functions handle `{{include}}` directives that pull content from other contracts. The `useRender` hook resolves includes automatically when `resolveIncludes: true` is set.
