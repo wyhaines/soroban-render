@@ -195,12 +195,27 @@ function App() {
 
 ## Documentation
 
+**Getting Started**
 - [Introduction](./docs/introduction.md) — Why Soroban Render?
 - [Getting Started](./docs/getting-started.md) — Build your first contract
 - [Viewing Contracts](./docs/viewing-contracts.md) — How to view any renderable contract
 - [Hello World Comparison](./docs/hello-world.md) — Full complexity comparison
-- [Markdown Format](./docs/markdown-format.md) — Interactive markdown reference
+
+**Rust SDK** ([soroban-render-sdk](https://github.com/wyhaines/soroban-render-sdk))
+- [Rust SDK Reference](./docs/rust-sdk.md) — Complete API for MarkdownBuilder, JsonDocument, Router
+- [Router Guide](./docs/router-guide.md) — Path matching and routing patterns
+- [Examples](./docs/examples.md) — Walkthrough of example contracts
+
+**Format References**
+- [Markdown Format](./docs/markdown-format.md) — Interactive markdown syntax
 - [JSON Format](./docs/json-format.md) — Structured UI definitions
+
+**Guides**
+- [Testing](./docs/testing.md) — Testing renderable contracts
+- [Best Practices](./docs/best-practices.md) — Design patterns and recommendations
+- [Troubleshooting](./docs/troubleshooting.md) — Common issues and solutions
+
+**TypeScript/React**
 - [React Integration](./docs/react-integration.md) — Hooks and components
 - [API Reference](./docs/api-reference.md) — Complete library documentation
 
