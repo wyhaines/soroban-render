@@ -41,5 +41,5 @@ Welcome to the Soroban Render documentation. This guide will help you understand
 
 - [Soroban Documentation](https://soroban.stellar.org/docs)
 - [Stellar Developer Portal](https://developers.stellar.org)
-- [Gno.land Render Concept](https://docs.gno.land/concepts/realms#render) (inspiration)
+- [Gno.land Render Concept](https://docs.gno.land/users/explore-with-gnoweb/#viewing-rendered-content) (inspiration)
 - [GitHub Repository](https://github.com/wyhaines/soroban-render)

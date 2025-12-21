@@ -304,7 +304,7 @@ impl TodoContract {
         parts.push_back(Bytes::from_slice(env, b"Soroban Render is a community convention for building **self-contained, renderable dApps** on Stellar's Soroban smart contract platform.\n\n"));
 
         // Info callout about the project
-        parts.push_back(Bytes::from_slice(env, b"> [!INFO]\n> Inspired by [Gno.land's Render() function](https://docs.gno.land/concepts/realms#render), Soroban Render allows smart contracts to define their own user interface.\n\n"));
+        parts.push_back(Bytes::from_slice(env, b"> [!INFO]\n> Inspired by [Gno.land's Render() function](https://docs.gno.land/users/explore-with-gnoweb/#viewing-rendered-content), Soroban Render allows smart contracts to define their own user interface.\n\n"));
 
         // Get stats
         let total_tasks: u32 = env.storage().persistent().get(&DataKey::TotalTasks).unwrap_or(0);

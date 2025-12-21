@@ -26,7 +26,7 @@ Soroban Render takes a different approach: your **smart contract defines its own
 
 ## Inspiration
 
-Soroban Render is inspired by [Gno.land's `Render()` function](https://docs.gno.land/concepts/realms#render), which pioneered the concept of contracts that render their own UI. We've adapted this for Stellar's Soroban ecosystem.
+Soroban Render is inspired by [Gno.land's `Render()` function](https://docs.gno.land/users/explore-with-gnoweb/#viewing-rendered-content), which pioneered the concept of contracts that render their own UI. We've adapted this for Stellar's Soroban ecosystem.
 
 ## How It Works
 

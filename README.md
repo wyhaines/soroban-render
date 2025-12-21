@@ -6,7 +6,7 @@
 
 What if your smart contract could render its own UI? No separate frontend to build, deploy, or maintain. Just the contract.
 
-Inspired by [Gno.land's `Render()` function](https://docs.gno.land/concepts/realms#render), Soroban Render lets contracts return Markdown or JSON that any compatible viewer can display.
+Inspired by [Gno.land's `Render()` function](https://docs.gno.land/users/explore-with-gnoweb/#viewing-rendered-content), Soroban Render lets contracts return Markdown or JSON that any compatible viewer can display.
 
 ## Traditional vs Soroban Render
 
@@ -252,4 +252,4 @@ Apache 2.0 — see [LICENSE](LICENSE)
 
 - [Soroban Documentation](https://soroban.stellar.org/docs)
 - [Stellar Developer Portal](https://developers.stellar.org)
-- [Gno.land Render Concept](https://docs.gno.land/concepts/realms#render)
+- [Gno.land Render Concept](https://docs.gno.land/users/explore-with-gnoweb/#viewing-rendered-content)
