@@ -7,14 +7,22 @@
 use soroban_sdk::{contract, contractimpl, Address, Env, String};
 use soroban_render_sdk::prelude::*;
 
-// Declare render support - viewers check this metadata
-soroban_render!(markdown);
+// Declare render support with styles - viewers check this metadata
+soroban_render!(markdown, styles);
 
 #[contract]
 pub struct HelloContract;
 
 #[contractimpl]
 impl HelloContract {
+    /// Simple styles for the hello contract
+    pub fn styles(env: Env) -> Bytes {
+        StyleBuilder::new(&env)
+            .rule("h1", "color: #0066cc;")
+            .rule("p", "font-size: 1.1rem; line-height: 1.6;")
+            .build()
+    }
+
     /// Render the contract UI as Markdown.
     /// This single function provides the entire frontend.
     pub fn render(env: Env, _path: Option<String>, viewer: Option<Address>) -> Bytes {

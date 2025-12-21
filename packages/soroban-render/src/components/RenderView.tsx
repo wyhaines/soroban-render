@@ -8,6 +8,10 @@ export interface RenderViewProps {
   style?: React.CSSProperties;
   loadingComponent?: React.ReactNode;
   errorComponent?: React.ReactNode;
+  /** CSS from contract styles() function and {{style}} tags */
+  css?: string | null;
+  /** Scope class name for CSS isolation */
+  scopeClassName?: string | null;
 }
 
 export function RenderView({
@@ -18,6 +22,8 @@ export function RenderView({
   style,
   loadingComponent,
   errorComponent,
+  css,
+  scopeClassName,
 }: RenderViewProps): React.ReactElement {
   if (loading) {
     if (loadingComponent) {
@@ -82,12 +88,24 @@ export function RenderView({
     );
   }
 
+  // Build class names including scope
+  const classNames = ["soroban-render-view"];
+  if (scopeClassName) {
+    classNames.push(scopeClassName);
+  }
+  if (className) {
+    classNames.push(className);
+  }
+
   return (
-    <div
-      className={`soroban-render-view ${className}`}
-      style={style}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <>
+      {css && <style dangerouslySetInnerHTML={{ __html: css }} />}
+      <div
+        className={classNames.join(" ")}
+        style={style}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </>
   );
 }
 

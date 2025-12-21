@@ -14,6 +14,7 @@ Welcome to the Soroban Render documentation. This guide will help you understand
 ### Rust SDK
 
 - [Rust SDK Reference](./rust-sdk.md) - Complete API for MarkdownBuilder, JsonDocument, Router
+- [Styling Guide](./styling.md) - CSS styling with StyleBuilder
 - [Router Guide](./router-guide.md) - Path matching and routing patterns
 - [Examples](./examples.md) - Walkthrough of example contracts
 

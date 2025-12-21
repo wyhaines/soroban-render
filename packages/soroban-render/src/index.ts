@@ -106,3 +106,32 @@ export {
   type ResolveResult,
   type CacheEntry,
 } from "./utils/includeResolver";
+
+export {
+  parseStyles,
+  hasStyleTags,
+  hasCssBlocks,
+  createStyleKey,
+  removeCssBlocks,
+  extractInlineCss,
+  type StyleTag,
+  type CssBlock,
+  type ParsedStyles,
+} from "./parsers/style";
+
+export {
+  sanitizeCss,
+  scopeCss,
+  validateCss,
+  combineCss,
+  createScopeClassName,
+  type SanitizeOptions,
+} from "./utils/cssSanitizer";
+
+export {
+  resolveStyles,
+  createStyleResolver,
+  type StyleResolveOptions,
+  type StyleResolveResult,
+  type StyleCacheEntry,
+} from "./utils/styleResolver";

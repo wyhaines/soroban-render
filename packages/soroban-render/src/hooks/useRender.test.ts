@@ -46,6 +46,18 @@ vi.mock("../utils/includeResolver", () => ({
   ),
 }));
 
+vi.mock("../utils/styleResolver", () => ({
+  resolveStyles: vi.fn(
+    (_client: unknown, content: string, options: { contractId: string }) =>
+      Promise.resolve({
+        content,
+        css: "",
+        scopeClassName: `soroban-scope-${options.contractId.slice(0, 8)}`,
+        sources: { includes: [], inline: [] },
+      })
+  ),
+}));
+
 import { callRender } from "../utils/client";
 
 const mockCallRender = vi.mocked(callRender);

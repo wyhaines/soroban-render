@@ -1274,7 +1274,6 @@ dependencies = [
 [[package]]
 name = "soroban-render-sdk"
 version = "0.1.0"
-source = "git+https://github.com/wyhaines/soroban-render-sdk.git#380146dbcbdf6865f24495b8ccf93daca9d6410c"
 dependencies = [
  "soroban-sdk",
 ]

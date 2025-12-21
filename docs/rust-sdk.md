@@ -21,6 +21,7 @@ The SDK uses feature flags to minimize contract size:
 | `markdown` | Yes | MarkdownBuilder for markdown output |
 | `json` | Yes | JsonDocument for JSON UI format |
 | `router` | Yes | Router and path utilities |
+| `styles` | Yes | StyleBuilder for CSS stylesheets |
 
 To use only specific features:
 
@@ -76,12 +77,23 @@ soroban_render!(json);
 
 // Both formats
 soroban_render!(markdown, json);
+
+// With styles support
+soroban_render!(markdown, styles);
+
+// With theme contract reference
+soroban_render!(markdown, styles, theme = "CABCD123...");
+
+// Full featured
+soroban_render!(markdown, json, styles, theme = "CABCD123...");
 ```
 
 **Expands to:**
 ```rust
 contractmeta!(key = "render", val = "v1");
 contractmeta!(key = "render_formats", val = "markdown");
+contractmeta!(key = "render_styles", val = "true");      // with styles
+contractmeta!(key = "render_theme", val = "CABCD123..."); // with theme
 ```
 
 ### render_v1!
@@ -101,6 +113,24 @@ Declares supported output formats.
 render_formats!(markdown);
 render_formats!(json);
 render_formats!(markdown, json);
+```
+
+### render_has_styles!
+
+Declares that the contract provides a `styles()` function.
+
+```rust
+render_has_styles!();
+// Expands to: contractmeta!(key = "render_styles", val = "true");
+```
+
+### render_theme!
+
+Declares a theme contract ID for style inheritance.
+
+```rust
+render_theme!("CABCD123...");
+// Expands to: contractmeta!(key = "render_theme", val = "CABCD123...");
 ```
 
 
@@ -524,6 +554,72 @@ Parse a numeric ID from a path with a prefix.
 let id = parse_id(&path_bytes, b"/task/");
 // "/task/123" → Some(123)
 // "/task/abc" → None
+```
+
+
+## StyleBuilder
+
+Build CSS stylesheets with a fluent API. For complete documentation, see the [Styling Guide](./styling.md).
+
+### Basic Usage
+
+```rust
+use soroban_render_sdk::prelude::*;
+
+pub fn styles(env: Env) -> Bytes {
+    StyleBuilder::new(&env)
+        .root_var("primary", "#0066cc")
+        .rule("h1", "color: var(--primary);")
+        .build()
+}
+```
+
+### CSS Variables
+
+```rust
+// Single variable
+.root_var("name", "value")
+
+// Multiple variables
+.root_vars_start()
+.var("primary", "#0066cc")
+.var("bg", "#ffffff")
+.root_vars_end()
+```
+
+### CSS Rules
+
+```rust
+// Inline rule
+.rule("h1", "color: blue; font-size: 2rem;")
+
+// Multi-line rule
+.rule_start("h1")
+.prop("color", "blue")
+.prop("font-size", "2rem")
+.rule_end()
+```
+
+### Media Queries
+
+```rust
+// Dark mode
+.dark_mode_start()
+.rule(":root", "--bg: #1a1a1a;")
+.media_end()
+
+// Responsive
+.breakpoint_max(768)
+.rule("h1", "font-size: 1.5rem;")
+.media_end()
+```
+
+### Utilities
+
+```rust
+.comment("Section")  // /* Section */
+.newline()           // Empty line
+.raw("/* Raw CSS */")
 ```
 
 

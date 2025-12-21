@@ -3,7 +3,8 @@
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Map, String, Vec};
 use soroban_render_sdk::prelude::*;
 
-soroban_render!(markdown, json);
+// Declare render support with styles and theme contract reference
+soroban_render!(markdown, json, styles, theme = "CCYEOY2JTOQ2JIMLLERAFNHAVKEKMEJDBOTLN6DIIWBHWEIMUA2T2VY4");
 
 // Storage keys
 #[contracttype]
@@ -36,6 +37,20 @@ impl TodoContract {
     /// Initialize is no longer needed - storage is created lazily per-user
     pub fn init(_env: Env) {
         // No-op for backwards compatibility
+    }
+
+    /// Todo-specific styles that augment the theme
+    pub fn styles(env: Env) -> Bytes {
+        StyleBuilder::new(&env)
+            .comment("Todo Contract Styles")
+            .newline()
+            .rule(".task-item", "display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border-bottom: 1px solid var(--border);")
+            .rule(".task-item.completed .task-text", "text-decoration: line-through; color: var(--text-muted);")
+            .rule(".task-actions", "display: flex; gap: 0.25rem;")
+            .rule(".task-actions a", "padding: 0.25rem 0.5rem; border: 1px solid var(--border); border-radius: 3px; font-size: 0.875rem;")
+            .rule(".task-actions a:hover", "background: var(--bg-muted);")
+            .rule(".add-task-form", "margin-bottom: 1.5rem; padding: 1rem; background: var(--bg-muted); border-radius: 8px;")
+            .build()
     }
 
     pub fn add_task(env: Env, description: String, caller: Address) -> u32 {
