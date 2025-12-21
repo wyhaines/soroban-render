@@ -1,213 +1,243 @@
 # Soroban Render
 
-A community convention and library for self-contained, renderable Soroban dApps.
+**Self-contained, renderable dApps on Stellar's Soroban platform.**
 
-## [View Live Demo](https://wyhaines.github.io/soroban-render/)
+[Live Demo](https://wyhaines.github.io/soroban-render/) | [Documentation](./docs/README.md)
 
-The demo shows a fully functional Todo app where **the entire UI is defined by the smart contract itself**. The contract returns markdown with embedded forms and action links - no separate frontend code needed.
+What if your smart contract could render its own UI? No separate frontend to build, deploy, or maintain. Just the contract.
 
----
+Inspired by [Gno.land's `Render()` function](https://docs.gno.land/concepts/realms#render), Soroban Render lets contracts return Markdown or JSON that any compatible viewer can display.
 
-Inspired by [Gno.land's `Render()` function](https://docs.gno.land/concepts/realms#render), Soroban Render enables Soroban smart contracts to provide their own user interface, allowing developers to build simple, interactive dApps primarily within the contract itself.
+## Traditional vs Soroban Render
+
+| Traditional Approach | Soroban Render |
+|---------------------|----------------|
+| Clone frontend template | Add `render()` function |
+| Generate TypeScript bindings | — |
+| Set up wallet integration | — |
+| Build UI components | — |
+| Deploy frontend separately | Deploy contract only |
+| **200+ lines across 10+ files** | **~30 lines, 1 file** |
+
+## Hello World
+
+This is a complete, renderable Soroban dApp:
+
+```rust
+#![no_std]
+use soroban_sdk::{contract, contractimpl, contractmeta, Address, Bytes, Env, String, Vec};
+
+contractmeta!(key = "render", val = "v1");
+contractmeta!(key = "render_formats", val = "markdown");
+
+#[contract]
+pub struct HelloContract;
+
+#[contractimpl]
+impl HelloContract {
+    pub fn render(env: Env, _path: Option<String>, viewer: Option<Address>) -> Bytes {
+        let mut parts: Vec<Bytes> = Vec::new(&env);
+
+        match viewer {
+            Some(_) => {
+                parts.push_back(Bytes::from_slice(&env, b"# Hello, Stellar User!\n\n"));
+                parts.push_back(Bytes::from_slice(&env, b"Your wallet is connected."));
+            }
+            None => {
+                parts.push_back(Bytes::from_slice(&env, b"# Hello, World!\n\n"));
+                parts.push_back(Bytes::from_slice(&env, b"Connect your wallet for a personalized greeting."));
+            }
+        };
+
+        Self::concat_bytes(&env, &parts)
+    }
+
+    fn concat_bytes(env: &Env, parts: &Vec<Bytes>) -> Bytes {
+        let mut result = Bytes::new(env);
+        for part in parts.iter() { result.append(&part); }
+        result
+    }
+}
+```
+
+Deploy it, and view it instantly.
+
+## Viewing Your Contract
+
+**You don't build a frontend.** You use an existing viewer:
+
+### Option 1: Hosted Viewer (Easiest)
+
+1. Deploy your contract to testnet/mainnet
+2. Go to **https://wyhaines.github.io/soroban-render/**
+3. Enter your contract ID
+4. Done — **10 seconds**
+
+### Option 2: Local Development
+
+```bash
+git clone https://github.com/wyhaines/soroban-render.git
+cd soroban-render && pnpm install && pnpm dev
+```
+
+Open http://localhost:5173 and enter your contract ID.
+
+### Option 3: Embed in Your App
+
+Use the [@soroban-render/core](https://www.npmjs.com/package/@soroban-render/core) library to add contract viewing to any React application.
+
+**The viewer handles everything:** wallet connection, transaction signing, form submission, navigation, error handling. You just build and deploy the contract.
 
 ## Features
 
-- **Contract-side `render()` convention** - Contracts return Markdown or JSON UI descriptions
-- **Interactive protocols** - `render:` for navigation, `tx:` for transactions, `form:` for form submissions
-- **Composability** - Contracts can include UI components from other contracts
-- **React library** - Hooks and components for rendering contract UIs
-- **Universal viewer** - Works with any contract that implements `render()`
-- **Local development** - Uses Stellar Quickstart Docker for fast iteration
-- **Testnet/Mainnet support** - Deploy anywhere Soroban runs
+- **Contract-side UI** — `render()` returns Markdown or JSON
+- **Interactive protocols** — `render:`, `tx:`, `form:` links for navigation and transactions
+- **Composability** — Include components from other contracts
+- **React library** — Hooks and components for custom viewers
+- **Charts** — Pie, gauge, and bar charts in JSON format
+- **Alerts & layouts** — GitHub-style callouts, multi-column layouts
 
 ## Quick Start
 
-### Prerequisites
+### View an Existing Contract
 
-- [Node.js 18+](https://nodejs.org/)
-- [pnpm 9+](https://pnpm.io/)
-- [Docker](https://www.docker.com/) (for local development)
-- [Rust](https://www.rust-lang.org/) (for contract development)
+The todo demo is already deployed. Just visit:
+
+**https://wyhaines.github.io/soroban-render/**
+
+Select "Testnet" and it loads automatically. No setup required.
+
+### Build Your Own Contract
+
+**Prerequisites:**
+- [Rust](https://www.rust-lang.org/tools/install)
 - [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools#cli)
 
-### Installation
+**Deploy to testnet:**
 
 ```bash
-# Clone the repository
+# Create your contract (or use the hello example)
 git clone https://github.com/wyhaines/soroban-render.git
-cd soroban-render
+cd soroban-render/contracts/hello
 
-# Install dependencies
-pnpm install
+# Build
+stellar contract build
 
-# Build the library
-pnpm build
+# Deploy to testnet
+stellar keys generate mykey --network testnet
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/soroban_render_hello.wasm \
+  --source mykey \
+  --network testnet
 ```
+
+Then view it at https://wyhaines.github.io/soroban-render/ — enter your contract ID and select "Testnet".
 
 ### Local Development
 
-1. **Start the local Stellar network:**
+For local development with a private Stellar network:
 
 ```bash
+# Prerequisites: Docker, Node.js 18+, pnpm
+git clone https://github.com/wyhaines/soroban-render.git
+cd soroban-render
+pnpm install
 pnpm docker:start
-```
 
-This starts Stellar Quickstart with Soroban RPC at `http://localhost:8000`.
-
-2. **Build and deploy the example contract:**
-
-```bash
-# Build the contract
-pnpm contract:build
-
-# Deploy to local network (you'll need to set up identities first)
+# Deploy locally
 stellar keys generate alice --network local
-pnpm contract:deploy
-```
+cd contracts/hello
+stellar contract build
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/soroban_render_hello.wasm \
+  --source alice \
+  --network local
 
-3. **Run the demo app:**
-
-```bash
+# Run local viewer
+cd ../..
 pnpm dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) and enter your contract ID.
+### Embed in Your App
+
+```bash
+pnpm add @soroban-render/core
+```
+
+```tsx
+import { createClient, useRender, InteractiveRenderView, Networks } from "@soroban-render/core";
+
+function App() {
+  const client = createClient(Networks.testnet.rpcUrl, Networks.testnet.networkPassphrase);
+  const { html, loading, error, refresh } = useRender(client, "CABC...XYZ");
+
+  return <InteractiveRenderView client={client} contractId="CABC...XYZ" html={html} loading={loading} error={error} onRefresh={refresh} />;
+}
+```
+
+## Documentation
+
+- [Introduction](./docs/introduction.md) — Why Soroban Render?
+- [Getting Started](./docs/getting-started.md) — Build your first contract
+- [Viewing Contracts](./docs/viewing-contracts.md) — How to view any renderable contract
+- [Hello World Comparison](./docs/hello-world.md) — Full complexity comparison
+- [Markdown Format](./docs/markdown-format.md) — Interactive markdown reference
+- [JSON Format](./docs/json-format.md) — Structured UI definitions
+- [React Integration](./docs/react-integration.md) — Hooks and components
+- [API Reference](./docs/api-reference.md) — Complete library documentation
+
 
 ## Project Structure
 
 ```
 soroban-render/
 ├── contracts/
-│   ├── todo/              # Example todo list contract
-│   └── theme/             # Reusable UI components contract
+│   ├── hello/     # Minimal hello world example
+│   ├── todo/      # Full-featured todo app
+│   └── theme/     # Reusable UI components
 ├── packages/
-│   └── soroban-render/    # @soroban-render/core library
+│   └── soroban-render/  # @soroban-render/core library
 ├── apps/
-│   └── viewer/            # Universal contract viewer
-├── docker-compose.yml     # Local Stellar Quickstart
-└── package.json           # Workspace root
+│   └── viewer/    # Universal contract viewer
+└── docs/          # Documentation
 ```
 
-## Contract Convention
-
-To make your contract renderable, implement a `render()` function and add the metadata flags:
-
-```rust
-use soroban_sdk::{contractmeta, contract, contractimpl, Bytes, Env, String, Address};
-
-// Declare render support
-contractmeta!(key = "render", val = "v1");
-contractmeta!(key = "render_formats", val = "markdown");
-
-#[contract]
-pub struct MyContract;
-
-#[contractimpl]
-impl MyContract {
-    /// Render the contract UI
-    /// Returns Markdown (or JSON) as UTF-8 bytes
-    pub fn render(
-        env: Env,
-        path: Option<String>,    // Sub-view path, e.g., "/task/123"
-        viewer: Option<Address>  // Connected wallet address
-    ) -> Bytes {
-        let markdown = String::from_str(&env, "# Hello, Soroban!\n\nThis is a renderable contract.");
-        Bytes::from_slice(&env, markdown.to_buffer::<256>().as_slice())
-    }
-}
-```
-
-## Using the Library
-
-### Installation
-
-```bash
-pnpm add @soroban-render/core
-```
-
-### React Usage
-
-```tsx
-import { createClient, useRender, RenderView, Networks } from "@soroban-render/core";
-
-function App() {
-  const client = createClient(Networks.testnet.rpcUrl, Networks.testnet.networkPassphrase);
-  const { html, loading, error } = useRender(client, "CABC...XYZ");
-
-  return <RenderView html={html} loading={loading} error={error} />;
-}
-```
-
-### Direct API
-
-```typescript
-import { createClient, callRender } from "@soroban-render/core";
-
-const client = createClient("http://localhost:8000/soroban/rpc", "Standalone Network ; February 2017");
-const markdown = await callRender(client, "CABC...XYZ", { path: "/task/1" });
-console.log(markdown);
-```
 
 ## Interactive Markdown
 
-Contracts can return markdown with special protocols for interactivity:
+Contracts can return markdown with special protocols:
 
 ```markdown
-# My Todo App
+# My App
 
-## Add Task
-<input name="description" type="text" placeholder="Task description" />
-[Add Task](form:add_task)
+[Home](render:/)                              <!-- Navigation -->
+[Delete](tx:delete {"id":1})                  <!-- Transaction -->
+<input name="title" />[Add](form:add_item)    <!-- Form submission -->
 
-## Tasks
-- [ ] Buy groceries [Done](tx:complete_task {"id":1}) [Delete](tx:delete_task {"id":1})
-- [x] ~~Walk the dog~~ (completed)
+> [!TIP]                                      <!-- Alert callout -->
+> This UI comes from the blockchain!
 
-## Navigation
-[All](render:/) | [Pending](render:/pending) | [Completed](render:/completed)
+:::columns                                    <!-- Multi-column layout -->
+Column 1 content
+|||
+Column 2 content
+:::
 
----
-{{include contract=THEME_CONTRACT_ID func="footer"}}
+{{include contract=THEME_ID func="footer"}}   <!-- Include from other contract -->
 ```
 
-### Protocols
-
-| Protocol | Example | Description |
-|----------|---------|-------------|
-| `render:` | `[Link](render:/path)` | Navigate to a new path (re-renders contract) |
-| `tx:` | `[Click](tx:method {"arg":1})` | Submit a transaction |
-| `form:` | `[Submit](form:method)` | Submit form inputs as transaction args |
-| `{{include}}` | `{{include contract=ID func="name"}}` | Include UI from another contract |
-
-## Development
-
-```bash
-# Install dependencies
-pnpm install
-
-# Start local Stellar
-pnpm docker:start
-
-# Build all packages
-pnpm build
-
-# Run the demo
-pnpm dev
-
-# Stop local Stellar
-pnpm docker:stop
-```
 
 ## Contributing
 
-Contributions are welcome! Please see our [contributing guidelines](CONTRIBUTING.md).
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-Apache 2.0 - see [LICENSE](LICENSE) for details.
+Apache 2.0 — see [LICENSE](LICENSE)
+
 
 ## Resources
 
 - [Soroban Documentation](https://soroban.stellar.org/docs)
-- [Stellar SDK](https://github.com/stellar/js-stellar-sdk)
+- [Stellar Developer Portal](https://developers.stellar.org)
 - [Gno.land Render Concept](https://docs.gno.land/concepts/realms#render)
