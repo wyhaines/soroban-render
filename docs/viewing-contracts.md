@@ -32,7 +32,24 @@ Open http://localhost:5173, enter your contract ID, and you're viewing.
 
 **Time to set up: ~2 minutes** (one-time setup)
 
-## Option 3: Embed in Your Own App
+## Option 3: Deploy Your Own Viewer (Recommended for Production)
+
+Want your contract at your own URL? Use the deploy template to host a full-featured viewer on GitHub Pages, Vercel, Netlify, or any static hosting service.
+
+1. Copy the template from `templates/viewer-deploy/` (or use "Use this template" on GitHub)
+2. Add two secrets to your repository:
+   - `VITE_CONTRACT_ID`: Your contract address
+   - `VITE_NETWORK`: `testnet` or `mainnet`
+3. Enable GitHub Pages (Settings > Pages > Source: GitHub Actions)
+4. Push to `main`
+
+Your viewer deploys automatically at `https://YOUR_USERNAME.github.io/YOUR_REPO/`
+
+**Time to deploy: ~5 minutes**
+
+The template includes everything: wallet connection, transaction handling, navigation, styling. You just configure and deploy.
+
+## Option 4: Embed in Your Own App
 
 If you want the contract UI as part of a larger application:
 
@@ -133,10 +150,13 @@ Even then, you're building a viewer that works with any renderable contract, not
 Traditional:
   Deploy Contract → Build Frontend → Deploy Frontend → Users visit your frontend
 
-Soroban Render:
+Soroban Render (hosted viewer):
   Deploy Contract → Users visit any compatible viewer
+
+Soroban Render (your own URL):
+  Deploy Contract → Fork template → Configure → Deploy → Users visit your URL
 ```
 
-The viewer is infrastructure that already exists. You only need to build and deploy your contract.
+The viewer is infrastructure that already exists. You either point users to an existing viewer, or deploy your own copy in minutes using the template.
 
 To create and deploy your first renderable contract, see [Getting Started](./getting-started.md). For a detailed breakdown of the complexity difference, [Hello World Comparison](./hello-world.md) walks through both approaches side by side. If you want to build a custom viewer, [React Integration](./react-integration.md) covers the hooks and components available.

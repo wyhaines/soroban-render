@@ -1,0 +1,219 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+/* Soroban Render view styles */
+.soroban-render-view h1 {
+  @apply text-3xl font-bold mb-4 pb-2 border-b border-gray-200;
+}
+
+.soroban-render-view h2 {
+  @apply text-2xl font-semibold mt-6 mb-3;
+}
+
+.soroban-render-view h3 {
+  @apply text-xl font-semibold mt-4 mb-2;
+}
+
+.soroban-render-view p {
+  @apply my-2;
+}
+
+.soroban-render-view ul, .soroban-render-view ol {
+  @apply my-2 pl-6;
+}
+
+.soroban-render-view li {
+  @apply my-1;
+}
+
+.soroban-render-view code {
+  @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.soroban-render-view pre {
+  @apply bg-gray-100 p-4 rounded overflow-x-auto my-4;
+}
+
+.soroban-render-view pre code {
+  @apply bg-transparent p-0;
+}
+
+.soroban-render-view blockquote {
+  @apply border-l-4 border-gray-300 pl-4 my-4 text-gray-600 italic;
+}
+
+.soroban-render-view a {
+  @apply text-blue-600 hover:underline;
+}
+
+.soroban-render-view table {
+  @apply w-full border-collapse my-4;
+}
+
+.soroban-render-view th, .soroban-render-view td {
+  @apply border border-gray-300 px-4 py-2 text-left;
+}
+
+.soroban-render-view th {
+  @apply bg-gray-50 font-semibold;
+}
+
+.soroban-render-view hr {
+  @apply border-t border-gray-200 my-6;
+}
+
+.soroban-render-view img {
+  @apply max-w-full h-auto rounded;
+}
+
+/* Form element styles */
+.soroban-render-view input[type="text"],
+.soroban-render-view input[type="email"],
+.soroban-render-view input[type="url"],
+.soroban-render-view input[type="number"],
+.soroban-render-view input[type="password"],
+.soroban-render-view input[type="search"],
+.soroban-render-view input[type="tel"],
+.soroban-render-view textarea {
+  @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  @apply text-base my-2;
+}
+
+.soroban-render-view textarea {
+  @apply min-h-[80px] resize-y;
+}
+
+.soroban-render-view select {
+  @apply px-3 py-2 border border-gray-300 rounded-md shadow-sm;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  @apply text-base my-2 bg-white;
+}
+
+.soroban-render-view input[type="checkbox"],
+.soroban-render-view input[type="radio"] {
+  @apply w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500;
+}
+
+.soroban-render-view label {
+  @apply block text-sm font-medium text-gray-700 mb-1;
+}
+
+/* Action links styled as buttons */
+.soroban-render-view a.soroban-action {
+  @apply inline-block px-4 py-2 bg-blue-600 text-white rounded-md;
+  @apply hover:bg-blue-700 no-underline font-medium;
+  @apply transition-colors duration-150;
+  @apply mr-2 my-1;
+}
+
+/* Secondary action variant */
+.soroban-render-view a.soroban-action.secondary {
+  @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+}
+
+/* Danger action variant */
+.soroban-render-view a.soroban-action[data-action*="delete"] {
+  @apply bg-red-600 hover:bg-red-700;
+}
+
+/* Alert/Callout styles */
+.soroban-render-view .soroban-alert {
+  @apply my-4 p-4 rounded-lg border-l-4;
+}
+
+.soroban-render-view .soroban-alert-note {
+  @apply bg-blue-50 border-blue-500;
+}
+
+.soroban-render-view .soroban-alert-warning {
+  @apply bg-yellow-50 border-yellow-500;
+}
+
+.soroban-render-view .soroban-alert-tip {
+  @apply bg-green-50 border-green-500;
+}
+
+.soroban-render-view .soroban-alert-info {
+  @apply bg-gray-100 border-gray-500;
+}
+
+.soroban-render-view .soroban-alert-caution {
+  @apply bg-red-50 border-red-500;
+}
+
+.soroban-render-view .soroban-alert-title {
+  @apply font-bold mb-2 text-sm uppercase tracking-wide;
+}
+
+.soroban-render-view .soroban-alert-note .soroban-alert-title {
+  @apply text-blue-700;
+}
+
+.soroban-render-view .soroban-alert-warning .soroban-alert-title {
+  @apply text-yellow-700;
+}
+
+.soroban-render-view .soroban-alert-tip .soroban-alert-title {
+  @apply text-green-700;
+}
+
+.soroban-render-view .soroban-alert-info .soroban-alert-title {
+  @apply text-gray-700;
+}
+
+.soroban-render-view .soroban-alert-caution .soroban-alert-title {
+  @apply text-red-700;
+}
+
+.soroban-render-view .soroban-alert-content {
+  @apply text-gray-700;
+}
+
+.soroban-render-view .soroban-alert-content p {
+  @apply my-1;
+}
+
+/* Multi-column layout styles */
+.soroban-render-view .soroban-columns {
+  @apply grid gap-4 my-4;
+}
+
+.soroban-render-view .soroban-columns-1 {
+  @apply grid-cols-1;
+}
+
+.soroban-render-view .soroban-columns-2 {
+  @apply grid-cols-1 md:grid-cols-2;
+}
+
+.soroban-render-view .soroban-columns-3 {
+  @apply grid-cols-1 md:grid-cols-3;
+}
+
+.soroban-render-view .soroban-columns-4 {
+  @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-4;
+}
+
+.soroban-render-view .soroban-column {
+  @apply p-4 bg-gray-50 rounded-lg;
+}
+
+.soroban-render-view .soroban-column > *:first-child {
+  @apply mt-0;
+}
+
+.soroban-render-view .soroban-column > *:last-child {
+  @apply mb-0;
+}

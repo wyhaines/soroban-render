@@ -82,7 +82,17 @@ cd soroban-render && pnpm install && pnpm dev
 
 Open http://localhost:5173 and enter your contract ID.
 
-### Option 3: Embed in Your App
+### Option 3: Deploy Your Own Viewer
+
+Want your contract at your own URL? Use the [deploy template](./templates/viewer-deploy/):
+
+1. Copy `templates/viewer-deploy/` to a new repository
+2. Add `VITE_CONTRACT_ID` and `VITE_NETWORK` as GitHub secrets
+3. Enable GitHub Pages → Push to `main`
+
+Your viewer deploys at `https://YOUR_USERNAME.github.io/YOUR_REPO/` — **5 minutes**
+
+### Option 4: Embed in Your App
 
 Use the [@soroban-render/core](https://www.npmjs.com/package/@soroban-render/core) library to add contract viewing to any React application.
 
@@ -199,6 +209,8 @@ soroban-render/
 │   └── soroban-render/  # @soroban-render/core library
 ├── apps/
 │   └── viewer/    # Universal contract viewer
+├── templates/
+│   └── viewer-deploy/   # Fork-and-deploy viewer template
 └── docs/          # Documentation
 ```
 
