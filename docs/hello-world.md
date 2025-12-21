@@ -64,7 +64,40 @@ By the end of this process, you have 10+ files across the frontend and contract,
 
 ## Soroban Render Approach
 
-With Soroban Render, the entire "frontend" is part of the contract:
+With Soroban Render and the SDK, the entire "frontend" is part of the contract:
+
+```rust
+#![no_std]
+use soroban_sdk::{contract, contractimpl, Address, Env, String};
+use soroban_render_sdk::prelude::*;
+
+soroban_render!(markdown);
+
+#[contract]
+pub struct HelloContract;
+
+#[contractimpl]
+impl HelloContract {
+    pub fn render(env: Env, _path: Option<String>, viewer: Option<Address>) -> Bytes {
+        match viewer {
+            Some(_) => MarkdownBuilder::new(&env)
+                .h1("Hello, Stellar User!")
+                .paragraph("Your wallet is connected.")
+                .build(),
+            None => MarkdownBuilder::new(&env)
+                .h1("Hello, World!")
+                .paragraph("Connect your wallet to see a personalized greeting.")
+                .build(),
+        }
+    }
+}
+```
+
+That's it. No helper functions needed — the SDK provides `MarkdownBuilder` for fluent markdown construction.
+
+### Without the SDK
+
+You can also write contracts without the SDK using raw bytes:
 
 ```rust
 #![no_std]
@@ -97,13 +130,13 @@ impl HelloContract {
 
     fn concat_bytes(env: &Env, parts: &Vec<Bytes>) -> Bytes {
         let mut result = Bytes::new(env);
-        for part in parts.iter() {
-            result.append(&part);
-        }
+        for part in parts.iter() { result.append(&part); }
         result
     }
 }
 ```
+
+The SDK approach is recommended for new projects as it reduces boilerplate and provides type-safe builders.
 
 ### Deployment
 
@@ -121,16 +154,17 @@ Open any Soroban Render viewer, enter the contract ID, and you're done. One file
 
 ## Side-by-Side Comparison
 
-| Aspect | Traditional | Soroban Render |
-|--------|-------------|----------------|
-| **Files to write** | 10+ | 1 |
-| **Languages** | Rust + TypeScript/JS | Rust only |
-| **Build systems** | Cargo + npm/pnpm | Cargo only |
-| **Deployments** | 2 (contract + frontend) | 1 (contract) |
-| **Wallet integration** | Manual setup | Built into viewer |
-| **TypeScript bindings** | Generate & maintain | Not needed |
-| **Hosting costs** | Contract + frontend hosting | Contract only |
-| **Time to first deploy** | Hours | Minutes |
+| Aspect | Traditional | Soroban Render (SDK) | Soroban Render (Raw) |
+|--------|-------------|---------------------|----------------------|
+| **Files to write** | 10+ | 1 | 1 |
+| **Lines of code** | 200+ | ~20 | ~40 |
+| **Languages** | Rust + TypeScript/JS | Rust only | Rust only |
+| **Build systems** | Cargo + npm/pnpm | Cargo only | Cargo only |
+| **Deployments** | 2 (contract + frontend) | 1 (contract) | 1 (contract) |
+| **Wallet integration** | Manual setup | Built into viewer | Built into viewer |
+| **TypeScript bindings** | Generate & maintain | Not needed | Not needed |
+| **Helper functions** | N/A | SDK provides | Write your own |
+| **Time to first deploy** | Hours | Minutes | Minutes |
 
 ## When Each Approach Makes Sense
 

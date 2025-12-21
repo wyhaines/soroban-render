@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 soroban-sdk = "22.0.0"
+soroban-render-sdk = { git = "https://github.com/wyhaines/soroban-render-sdk.git", default-features = false, features = ["markdown"] }
 
 [dev-dependencies]
 soroban-sdk = { version = "22.0.0", features = ["testutils"] }

@@ -20,17 +20,27 @@ stellar contract init my-renderable-app
 cd my-renderable-app
 ```
 
-### 2. Add Render Metadata
+### 2. Add the SDK Dependency
 
-Edit `src/lib.rs` to add the render convention metadata:
+Add `soroban-render-sdk` to your `Cargo.toml`:
+
+```toml
+[dependencies]
+soroban-sdk = "22.0.0"
+soroban-render-sdk = { git = "https://github.com/wyhaines/soroban-render-sdk.git" }
+```
+
+### 3. Add Render Support
+
+Edit `src/lib.rs` to add the render convention:
 
 ```rust
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contractmeta, Address, Bytes, Env, String};
+use soroban_sdk::{contract, contractimpl, Address, Env, String};
+use soroban_render_sdk::prelude::*;
 
 // Declare render support
-contractmeta!(key = "render", val = "v1");
-contractmeta!(key = "render_formats", val = "markdown");
+soroban_render!(markdown);
 
 #[contract]
 pub struct MyContract;
@@ -38,12 +48,17 @@ pub struct MyContract;
 #[contractimpl]
 impl MyContract {
     pub fn render(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
-        Bytes::from_slice(&env, b"# Hello from my contract!\n\nThis is my first renderable dApp.")
+        MarkdownBuilder::new(&env)
+            .h1("Hello from my contract!")
+            .paragraph("This is my first renderable dApp.")
+            .build()
     }
 }
 ```
 
-### 3. Build the Contract
+The `soroban_render!()` macro declares the contract's render capability, and `MarkdownBuilder` provides a fluent API for constructing markdown output.
+
+### 4. Build the Contract
 
 ```bash
 stellar contract build
@@ -112,25 +127,35 @@ Using the Soroban Render viewer:
 
 ## Adding Interactivity
 
-The basic contract above returns static markdown. To make your contract interactive, you can add navigation links, transaction triggers, and forms.
+The basic contract above returns static markdown. To make your contract interactive, you can add navigation links, transaction triggers, and forms using the SDK.
 
-### Navigation Links
+### Navigation with Router
 
-Add paths to navigate between views:
+Use the Router for clean path-based navigation:
 
 ```rust
-pub fn render(env: Env, path: Option<String>, _viewer: Option<Address>) -> Bytes {
-    let path_str = path.map(|p| {
-        let mut buf = [0u8; 64];
-        let len = p.len() as usize;
-        p.copy_into_slice(&mut buf[..len]);
-        buf[..len].to_vec()
-    });
+use soroban_render_sdk::prelude::*;
 
-    match path_str.as_deref() {
-        Some(b"/about") => Bytes::from_slice(&env, b"# About\n\n[Back Home](render:/)"),
-        _ => Bytes::from_slice(&env, b"# Home\n\n[Go to About](render:/about)"),
-    }
+pub fn render(env: Env, path: Option<String>, _viewer: Option<Address>) -> Bytes {
+    Router::new(&env, path)
+        .handle(b"/", |_| {
+            MarkdownBuilder::new(&env)
+                .h1("Home")
+                .render_link("Go to About", "/about")
+                .build()
+        })
+        .or_handle(b"/about", |_| {
+            MarkdownBuilder::new(&env)
+                .h1("About")
+                .render_link("Back Home", "/")
+                .build()
+        })
+        .or_default(|_| {
+            MarkdownBuilder::new(&env)
+                .h1("Home")
+                .render_link("Go to About", "/about")
+                .build()
+        })
 }
 ```
 
@@ -139,7 +164,6 @@ pub fn render(env: Env, path: Option<String>, _viewer: Option<Address>) -> Bytes
 Allow users to trigger contract methods:
 
 ```rust
-// In your contract
 pub fn increment(env: Env, caller: Address) {
     caller.require_auth();
     let count: u32 = env.storage().instance().get(&"count").unwrap_or(0);
@@ -149,13 +173,13 @@ pub fn increment(env: Env, caller: Address) {
 pub fn render(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
     let count: u32 = env.storage().instance().get(&"count").unwrap_or(0);
 
-    // Assuming u32_to_bytes helper exists
-    let mut parts = Vec::new(&env);
-    parts.push_back(Bytes::from_slice(&env, b"# Counter: "));
-    parts.push_back(Self::u32_to_bytes(&env, count));
-    parts.push_back(Bytes::from_slice(&env, b"\n\n[Increment](tx:increment)"));
-
-    Self::concat_bytes(&env, &parts)
+    MarkdownBuilder::new(&env)
+        .h1("Counter")
+        .text("Current count: ")
+        .number(count)
+        .newline().newline()
+        .tx_link("Increment", "increment", "")
+        .build()
 }
 ```
 
@@ -165,13 +189,11 @@ Collect user input with forms:
 
 ```rust
 pub fn render(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
-    Bytes::from_slice(&env, b"\
-# Add Item
-
-<input name=\"title\" type=\"text\" placeholder=\"Enter title\" />
-
-[Submit](form:add_item)
-")
+    MarkdownBuilder::new(&env)
+        .h1("Add Item")
+        .input("title", "Enter title")
+        .form_link("Submit", "add_item")
+        .build()
 }
 ```
 

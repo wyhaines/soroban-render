@@ -1,20 +1,18 @@
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, contractmeta, contracttype, Address, Bytes, Env, Map, String, Vec,
-};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Map, String, Vec};
+use soroban_render_sdk::prelude::*;
 
-contractmeta!(key = "render", val = "v1");
-contractmeta!(key = "render_formats", val = "markdown,json");
+soroban_render!(markdown, json);
 
 // Storage keys
 #[contracttype]
 #[derive(Clone)]
 pub enum DataKey {
-    Tasks(Address),  // Map<u32, Task> for each user
-    NextId(Address), // Next task ID for each user
-    UserCount,       // Total unique users
-    TotalTasks,      // Total tasks across all users
+    Tasks(Address),    // Map<u32, Task> for each user
+    NextId(Address),   // Next task ID for each user
+    UserCount,         // Total unique users
+    TotalTasks,        // Total tasks across all users
     HasTasks(Address), // Whether a user has ever had tasks (for counting unique users)
 }
 
@@ -29,6 +27,9 @@ pub struct Task {
 
 #[contract]
 pub struct TodoContract;
+
+// Theme contract ID for includes
+const THEME_CONTRACT_ID: &str = "CCYEOY2JTOQ2JIMLLERAFNHAVKEKMEJDBOTLN6DIIWBHWEIMUA2T2VY4";
 
 #[contractimpl]
 impl TodoContract {
@@ -61,18 +62,36 @@ impl TodoContract {
 
         tasks.set(next_id, task);
         env.storage().persistent().set(&tasks_key, &tasks);
-        env.storage().persistent().set(&next_id_key, &(next_id + 1));
+        env.storage()
+            .persistent()
+            .set(&next_id_key, &(next_id + 1));
 
         // Update global stats
-        let total_tasks: u32 = env.storage().persistent().get(&DataKey::TotalTasks).unwrap_or(0);
-        env.storage().persistent().set(&DataKey::TotalTasks, &(total_tasks + 1));
+        let total_tasks: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::TotalTasks)
+            .unwrap_or(0);
+        env.storage()
+            .persistent()
+            .set(&DataKey::TotalTasks, &(total_tasks + 1));
 
         // Track unique users
-        let user_has_tasks: bool = env.storage().persistent().get(&has_tasks_key).unwrap_or(false);
+        let user_has_tasks: bool = env
+            .storage()
+            .persistent()
+            .get(&has_tasks_key)
+            .unwrap_or(false);
         if !user_has_tasks {
             env.storage().persistent().set(&has_tasks_key, &true);
-            let user_count: u32 = env.storage().persistent().get(&DataKey::UserCount).unwrap_or(0);
-            env.storage().persistent().set(&DataKey::UserCount, &(user_count + 1));
+            let user_count: u32 = env
+                .storage()
+                .persistent()
+                .get(&DataKey::UserCount)
+                .unwrap_or(0);
+            env.storage()
+                .persistent()
+                .set(&DataKey::UserCount, &(user_count + 1));
         }
 
         next_id
@@ -111,17 +130,31 @@ impl TodoContract {
             env.storage().persistent().set(&tasks_key, &tasks);
 
             // Decrement global task count
-            let total_tasks: u32 = env.storage().persistent().get(&DataKey::TotalTasks).unwrap_or(0);
+            let total_tasks: u32 = env
+                .storage()
+                .persistent()
+                .get(&DataKey::TotalTasks)
+                .unwrap_or(0);
             if total_tasks > 0 {
-                env.storage().persistent().set(&DataKey::TotalTasks, &(total_tasks - 1));
+                env.storage()
+                    .persistent()
+                    .set(&DataKey::TotalTasks, &(total_tasks - 1));
             }
         }
     }
 
     /// Get global stats
     pub fn get_stats(env: Env) -> (u32, u32) {
-        let total_tasks: u32 = env.storage().persistent().get(&DataKey::TotalTasks).unwrap_or(0);
-        let user_count: u32 = env.storage().persistent().get(&DataKey::UserCount).unwrap_or(0);
+        let total_tasks: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::TotalTasks)
+            .unwrap_or(0);
+        let user_count: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::UserCount)
+            .unwrap_or(0);
         (total_tasks, user_count)
     }
 
@@ -165,215 +198,184 @@ impl TodoContract {
             Map::new(&env)
         };
 
-        // Route based on path
-        let path_bytes = if let Some(ref p) = path {
-            Self::string_to_bytes(&env, p)
-        } else {
-            Bytes::from_slice(&env, b"/")
-        };
+        let wallet_connected = viewer.is_some();
 
-        // Check routes
-        let home_bytes = Bytes::from_slice(&env, b"/");
-        let tasks_bytes = Bytes::from_slice(&env, b"/tasks");
-        let about_bytes = Bytes::from_slice(&env, b"/about");
-        let pending_bytes = Bytes::from_slice(&env, b"/pending");
-        let completed_bytes = Bytes::from_slice(&env, b"/completed");
-        let json_prefix = Bytes::from_slice(&env, b"/json");
-
-        // Check for /json prefix
-        if path_bytes.len() >= 5 {
-            let mut is_json = true;
-            for i in 0..5u32 {
-                if path_bytes.get(i) != json_prefix.get(i) {
-                    is_json = false;
-                    break;
-                }
-            }
-
-            if is_json {
-                let subpath = if path_bytes.len() > 5 {
-                    let mut sub = Bytes::new(&env);
-                    for i in 5..path_bytes.len() {
-                        if let Some(b) = path_bytes.get(i) {
-                            sub.push_back(b);
-                        }
-                    }
-                    Some(sub)
-                } else {
-                    None
-                };
-                return Self::render_json(&env, &tasks, subpath, viewer.is_some());
-            }
-        }
-
-        // Additional route patterns
-        let tasks_pending_bytes = Bytes::from_slice(&env, b"/tasks/pending");
-        let tasks_completed_bytes = Bytes::from_slice(&env, b"/tasks/completed");
-
-        // Route to appropriate page
-        if path_bytes == home_bytes {
-            return Self::render_home(&env, viewer.is_some());
-        } else if path_bytes == about_bytes {
-            return Self::render_about(&env);
-        } else if path_bytes == tasks_bytes {
-            return Self::render_task_list(&env, &tasks, None, viewer.is_some());
-        } else if path_bytes == tasks_pending_bytes || path_bytes == pending_bytes {
-            return Self::render_task_list(&env, &tasks, Some(false), viewer.is_some());
-        } else if path_bytes == tasks_completed_bytes || path_bytes == completed_bytes {
-            return Self::render_task_list(&env, &tasks, Some(true), viewer.is_some());
-        }
-
-        // Check for /task/:id pattern
-        let task_prefix = Bytes::from_slice(&env, b"/task/");
-        if path_bytes.len() > 6 {
-            let mut matches = true;
-            for i in 0..6u32 {
-                if path_bytes.get(i) != task_prefix.get(i) {
-                    matches = false;
-                    break;
-                }
-            }
-            if matches {
-                if let Some(id_byte) = path_bytes.get(6) {
-                    if id_byte >= b'0' && id_byte <= b'9' {
-                        let id = (id_byte - b'0') as u32;
-                        return Self::render_single_task(&env, &tasks, id);
-                    }
-                }
-            }
-        }
-
-        // Default to home
-        Self::render_home(&env, viewer.is_some())
+        // Use the Router for clean path matching
+        Router::new(&env, path)
+            .handle(b"/", |_| Self::render_home(&env, wallet_connected))
+            .or_handle(b"/about", |_| Self::render_about(&env))
+            .or_handle(b"/tasks", |_| {
+                Self::render_task_list(&env, &tasks, None, wallet_connected)
+            })
+            .or_handle(b"/tasks/pending", |_| {
+                Self::render_task_list(&env, &tasks, Some(false), wallet_connected)
+            })
+            .or_handle(b"/pending", |_| {
+                Self::render_task_list(&env, &tasks, Some(false), wallet_connected)
+            })
+            .or_handle(b"/tasks/completed", |_| {
+                Self::render_task_list(&env, &tasks, Some(true), wallet_connected)
+            })
+            .or_handle(b"/completed", |_| {
+                Self::render_task_list(&env, &tasks, Some(true), wallet_connected)
+            })
+            .or_handle(b"/task/{id}", |req| {
+                let id = req.get_var_u32(b"id").unwrap_or(0);
+                Self::render_single_task(&env, &tasks, id)
+            })
+            .or_handle(b"/json", |_| {
+                Self::render_json(&env, &tasks, None, wallet_connected)
+            })
+            .or_handle(b"/json/*", |req| {
+                Self::render_json(&env, &tasks, req.get_wildcard(), wallet_connected)
+            })
+            .or_default(|_| Self::render_home(&env, wallet_connected))
     }
 
     fn render_home(env: &Env, wallet_connected: bool) -> Bytes {
-        let mut parts: Vec<Bytes> = Vec::new(env);
-
-        // Header from theme contract
-        parts.push_back(Bytes::from_slice(env, b"{{include contract=CCYEOY2JTOQ2JIMLLERAFNHAVKEKMEJDBOTLN6DIIWBHWEIMUA2T2VY4 func=\"header\"}}\n"));
-
-        // Navigation
-        parts.push_back(Bytes::from_slice(env, b"[Home](render:/) | [Tasks](render:/tasks) | [About](render:/about)\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"---\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"## Welcome to the Soroban Render Demo\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"This is a **fully functional todo application** where the entire user interface is defined by the smart contract itself.\n\n"));
-
-        // Alert callout for key information
-        parts.push_back(Bytes::from_slice(env, b"> [!TIP]\n> This entire UI is generated by the smart contract's `render()` function. The markdown you see, including this callout, comes directly from the blockchain!\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"### What makes this special?\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"- **Self-contained UI**: The contract's `render()` function returns this markdown you're reading\n"));
-        parts.push_back(Bytes::from_slice(env, b"- **Interactive elements**: Forms and buttons trigger real blockchain transactions\n"));
-        parts.push_back(Bytes::from_slice(env, b"- **Per-user storage**: Each wallet has its own private task list\n"));
-        parts.push_back(Bytes::from_slice(env, b"- **Composability**: This app includes header/footer components from a separate theme contract\n\n"));
+        let mut md = MarkdownBuilder::new(env)
+            .include(THEME_CONTRACT_ID, "header")
+            .render_link("Home", "/")
+            .text(" | ")
+            .render_link("Tasks", "/tasks")
+            .text(" | ")
+            .render_link("About", "/about")
+            .newline()
+            .newline()
+            .hr()
+            .h2("Welcome to the Soroban Render Demo")
+            .paragraph(
+                "This is a **fully functional todo application** where the entire user interface is defined by the smart contract itself.",
+            )
+            .tip(
+                "This entire UI is generated by the smart contract's `render()` function. The markdown you see, including this callout, comes directly from the blockchain!",
+            )
+            .h3("What makes this special?")
+            .list_item(
+                "**Self-contained UI**: The contract's `render()` function returns this markdown you're reading",
+            )
+            .list_item("**Interactive elements**: Forms and buttons trigger real blockchain transactions")
+            .list_item("**Per-user storage**: Each wallet has its own private task list")
+            .list_item(
+                "**Composability**: This app includes header/footer components from a separate theme contract",
+            )
+            .newline();
 
         if wallet_connected {
-            parts.push_back(Bytes::from_slice(env, b"> [!NOTE]\n> Your wallet is connected! You're ready to create and manage tasks.\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"### Get Started\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"Head over to [Tasks](render:/tasks) to manage your todo list.\n\n"));
+            md = md
+                .note("Your wallet is connected! You're ready to create and manage tasks.")
+                .h3("Get Started")
+                .paragraph("Head over to [Tasks](render:/tasks) to manage your todo list.");
         } else {
-            parts.push_back(Bytes::from_slice(env, b"> [!WARNING]\n> Connect your wallet (button in top-right) to create and manage your personal todo list.\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"### Get Started\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"Each user has their own private task list stored on the blockchain.\n\n"));
+            md = md
+                .warning(
+                    "Connect your wallet (button in top-right) to create and manage your personal todo list.",
+                )
+                .h3("Get Started")
+                .paragraph("Each user has their own private task list stored on the blockchain.");
         }
 
-        // Footer from theme contract
-        parts.push_back(Bytes::from_slice(env, b"{{include contract=CCYEOY2JTOQ2JIMLLERAFNHAVKEKMEJDBOTLN6DIIWBHWEIMUA2T2VY4 func=\"footer\"}}"));
-
-        Self::concat_bytes(env, &parts)
+        md.include(THEME_CONTRACT_ID, "footer").build()
     }
 
     fn render_about(env: &Env) -> Bytes {
-        let mut parts: Vec<Bytes> = Vec::new(env);
-
-        // Header from theme contract
-        parts.push_back(Bytes::from_slice(env, b"{{include contract=CCYEOY2JTOQ2JIMLLERAFNHAVKEKMEJDBOTLN6DIIWBHWEIMUA2T2VY4 func=\"header\"}}\n"));
-
-        // Navigation
-        parts.push_back(Bytes::from_slice(env, b"[Home](render:/) | [Tasks](render:/tasks) | [About](render:/about)\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"---\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"## About Soroban Render\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"Soroban Render is a community convention for building **self-contained, renderable dApps** on Stellar's Soroban smart contract platform.\n\n"));
-
-        // Info callout about the project
-        parts.push_back(Bytes::from_slice(env, b"> [!INFO]\n> Inspired by [Gno.land's Render() function](https://docs.gno.land/users/explore-with-gnoweb/#viewing-rendered-content), Soroban Render allows smart contracts to define their own user interface.\n\n"));
-
         // Get stats
-        let total_tasks: u32 = env.storage().persistent().get(&DataKey::TotalTasks).unwrap_or(0);
-        let user_count: u32 = env.storage().persistent().get(&DataKey::UserCount).unwrap_or(0);
+        let total_tasks: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::TotalTasks)
+            .unwrap_or(0);
+        let user_count: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::UserCount)
+            .unwrap_or(0);
 
-        // Stats in columns
-        parts.push_back(Bytes::from_slice(env, b"### Live Stats\n\n"));
-        parts.push_back(Bytes::from_slice(env, b":::columns\n"));
-        parts.push_back(Bytes::from_slice(env, b"**Total Tasks**\n\n"));
-        parts.push_back(Bytes::from_slice(env, b"# "));
-        parts.push_back(Self::u32_to_bytes(env, total_tasks));
-        parts.push_back(Bytes::from_slice(env, b"\n\ntasks stored on-chain\n"));
-        parts.push_back(Bytes::from_slice(env, b"|||\n"));
-        parts.push_back(Bytes::from_slice(env, b"**Unique Users**\n\n"));
-        parts.push_back(Bytes::from_slice(env, b"# "));
-        parts.push_back(Self::u32_to_bytes(env, user_count));
-        parts.push_back(Bytes::from_slice(env, b"\n\nwallets with tasks\n"));
-        parts.push_back(Bytes::from_slice(env, b":::\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"### How It Works\n\n"));
-
-        // Features in columns
-        parts.push_back(Bytes::from_slice(env, b":::columns\n"));
-        parts.push_back(Bytes::from_slice(env, b"**1. Contract Renders UI**\n\nThe `render(path, viewer)` function returns markdown or JSON describing the interface.\n"));
-        parts.push_back(Bytes::from_slice(env, b"|||\n"));
-        parts.push_back(Bytes::from_slice(env, b"**2. Special Protocols**\n\n`render:` for navigation, `tx:` for transactions, `form:` for form submissions.\n"));
-        parts.push_back(Bytes::from_slice(env, b"|||\n"));
-        parts.push_back(Bytes::from_slice(env, b"**3. Universal Viewer**\n\nAny contract implementing `render()` can be viewed with the same generic viewer.\n"));
-        parts.push_back(Bytes::from_slice(env, b":::\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"### Learn More\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"- [View the source code on GitHub](https://github.com/wyhaines/soroban-render)\n"));
-        parts.push_back(Bytes::from_slice(env, b"- [Soroban Documentation](https://soroban.stellar.org/docs)\n"));
-        parts.push_back(Bytes::from_slice(env, b"- [Stellar Developer Portal](https://developers.stellar.org)\n\n"));
-
-        // Footer from theme contract
-        parts.push_back(Bytes::from_slice(env, b"{{include contract=CCYEOY2JTOQ2JIMLLERAFNHAVKEKMEJDBOTLN6DIIWBHWEIMUA2T2VY4 func=\"footer\"}}"));
-
-        Self::concat_bytes(env, &parts)
+        MarkdownBuilder::new(env)
+            .include(THEME_CONTRACT_ID, "header")
+            .render_link("Home", "/")
+            .text(" | ")
+            .render_link("Tasks", "/tasks")
+            .text(" | ")
+            .render_link("About", "/about")
+            .newline()
+            .newline()
+            .hr()
+            .h2("About Soroban Render")
+            .paragraph(
+                "Soroban Render is a community convention for building **self-contained, renderable dApps** on Stellar's Soroban smart contract platform.",
+            )
+            .info(
+                "Inspired by [Gno.land's Render() function](https://docs.gno.land/users/explore-with-gnoweb/#viewing-rendered-content), Soroban Render allows smart contracts to define their own user interface.",
+            )
+            .h3("Live Stats")
+            .columns_start()
+            .raw_str("**Total Tasks**\n\n# ")
+            .number(total_tasks)
+            .raw_str("\n\ntasks stored on-chain\n")
+            .column_separator()
+            .raw_str("**Unique Users**\n\n# ")
+            .number(user_count)
+            .raw_str("\n\nwallets with tasks\n")
+            .columns_end()
+            .h3("How It Works")
+            .columns_start()
+            .raw_str("**1. Contract Renders UI**\n\nThe `render(path, viewer)` function returns markdown or JSON describing the interface.\n")
+            .column_separator()
+            .raw_str("**2. Special Protocols**\n\n`render:` for navigation, `tx:` for transactions, `form:` for form submissions.\n")
+            .column_separator()
+            .raw_str("**3. Universal Viewer**\n\nAny contract implementing `render()` can be viewed with the same generic viewer.\n")
+            .columns_end()
+            .h3("Learn More")
+            .list_item("[View the source code on GitHub](https://github.com/wyhaines/soroban-render)")
+            .list_item("[Soroban Documentation](https://soroban.stellar.org/docs)")
+            .list_item("[Stellar Developer Portal](https://developers.stellar.org)")
+            .newline()
+            .include(THEME_CONTRACT_ID, "footer")
+            .build()
     }
 
-    fn render_task_list(env: &Env, tasks: &Map<u32, Task>, filter: Option<bool>, wallet_connected: bool) -> Bytes {
-        let mut parts: Vec<Bytes> = Vec::new(env);
+    fn render_task_list(
+        env: &Env,
+        tasks: &Map<u32, Task>,
+        filter: Option<bool>,
+        wallet_connected: bool,
+    ) -> Bytes {
+        let mut md = MarkdownBuilder::new(env)
+            .include(THEME_CONTRACT_ID, "header")
+            .render_link("Home", "/")
+            .text(" | ")
+            .render_link("Tasks", "/tasks")
+            .text(" | ")
+            .render_link("About", "/about")
+            .newline()
+            .newline()
+            .hr();
 
-        // Header from theme contract
-        parts.push_back(Bytes::from_slice(env, b"{{include contract=CCYEOY2JTOQ2JIMLLERAFNHAVKEKMEJDBOTLN6DIIWBHWEIMUA2T2VY4 func=\"header\"}}\n"));
-
-        // Navigation
-        parts.push_back(Bytes::from_slice(env, b"[Home](render:/) | [Tasks](render:/tasks) | [About](render:/about)\n\n"));
-
-        parts.push_back(Bytes::from_slice(env, b"---\n\n"));
-
-        // Check if wallet is connected
         if !wallet_connected {
-            parts.push_back(Bytes::from_slice(env, b"## Connect Your Wallet\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"**Please connect your wallet** to view and manage your personal todo list.\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"Each user has their own private task list that only they can see and modify.\n\n"));
+            md = md
+                .h2("Connect Your Wallet")
+                .paragraph(
+                    "**Please connect your wallet** to view and manage your personal todo list.",
+                )
+                .paragraph(
+                    "Each user has their own private task list that only they can see and modify.",
+                );
         } else {
             // Add task form
-            parts.push_back(Bytes::from_slice(env, b"## Add Task\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"<textarea name=\"description\" rows=\"2\" placeholder=\"What needs to be done?\"></textarea>\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"[Add Task](form:add_task)\n\n"));
-
-            // Filter navigation (app-specific)
-            parts.push_back(Bytes::from_slice(env, b"## Filter\n\n"));
-            parts.push_back(Bytes::from_slice(env, b"[All](render:/tasks) | [Pending](render:/tasks/pending) | [Completed](render:/tasks/completed)\n\n"));
-
-            parts.push_back(Bytes::from_slice(env, b"## Your Tasks\n\n"));
+            md = md
+                .h2("Add Task")
+                .textarea("description", 2, "What needs to be done?")
+                .form_link("Add Task", "add_task")
+                .h2("Filter")
+                .render_link("All", "/tasks")
+                .text(" | ")
+                .render_link("Pending", "/tasks/pending")
+                .text(" | ")
+                .render_link("Completed", "/tasks/completed")
+                .newline()
+                .newline()
+                .h2("Your Tasks");
 
             let mut has_tasks = false;
             for (_, task) in tasks.iter() {
@@ -385,104 +387,107 @@ impl TodoContract {
                 }
 
                 has_tasks = true;
-                let checkbox = if task.completed { b"[x]" } else { b"[ ]" };
-                parts.push_back(Bytes::from_slice(env, b"- "));
-                parts.push_back(Bytes::from_slice(env, checkbox));
-                parts.push_back(Bytes::from_slice(env, b" "));
+
+                // Use checkbox pattern
+                md = md.checkbox(task.completed, "");
 
                 if task.completed {
-                    parts.push_back(Bytes::from_slice(env, b"~~"));
-                    parts.push_back(Self::string_to_bytes(env, &task.description));
-                    parts.push_back(Bytes::from_slice(env, b"~~"));
+                    md = md
+                        .raw_str("~~")
+                        .text_string(&task.description)
+                        .raw_str("~~");
                 } else {
-                    parts.push_back(Self::string_to_bytes(env, &task.description));
+                    md = md.text_string(&task.description);
                 }
 
-                parts.push_back(Bytes::from_slice(env, b" (#"));
-                parts.push_back(Self::u32_to_bytes(env, task.id));
-                parts.push_back(Bytes::from_slice(env, b") "));
+                md = md.text(" (#").number(task.id).text(") ");
 
                 // Action buttons
                 if !task.completed {
-                    parts.push_back(Bytes::from_slice(env, b"[Done](tx:complete_task {\"id\":"));
-                    parts.push_back(Self::u32_to_bytes(env, task.id));
-                    parts.push_back(Bytes::from_slice(env, b"}) "));
+                    md = md.tx_link_id("Done", "complete_task", task.id).text(" ");
                 }
-                parts.push_back(Bytes::from_slice(env, b"[Delete](tx:delete_task {\"id\":"));
-                parts.push_back(Self::u32_to_bytes(env, task.id));
-                parts.push_back(Bytes::from_slice(env, b"})\n"));
+                md = md.tx_link_id("Delete", "delete_task", task.id).newline();
             }
 
             if !has_tasks {
                 if filter.is_some() {
-                    parts.push_back(Bytes::from_slice(env, b"*No matching tasks.*\n\n"));
+                    md = md.paragraph("*No matching tasks.*");
                 } else {
-                    parts.push_back(Bytes::from_slice(env, b"*No tasks yet. Add one above!*\n\n"));
+                    md = md.paragraph("*No tasks yet. Add one above!*");
                 }
             }
         }
 
-        // Use cross-contract include for footer from theme contract
-        parts.push_back(Bytes::from_slice(env, b"{{include contract=CCYEOY2JTOQ2JIMLLERAFNHAVKEKMEJDBOTLN6DIIWBHWEIMUA2T2VY4 func=\"footer\"}}"));
-
-        Self::concat_bytes(env, &parts)
+        md.include(THEME_CONTRACT_ID, "footer").build()
     }
 
     fn render_single_task(env: &Env, tasks: &Map<u32, Task>, id: u32) -> Bytes {
-        let mut parts: Vec<Bytes> = Vec::new(env);
-
-        parts.push_back(Bytes::from_slice(env, b"# Task Details\n\n"));
+        let mut md = MarkdownBuilder::new(env).h1("Task Details");
 
         if let Some(task) = tasks.get(id) {
-            let status: &[u8] = if task.completed {
-                b"Completed"
+            let status = if task.completed {
+                "Completed"
             } else {
-                b"Pending"
+                "Pending"
             };
 
-            parts.push_back(Bytes::from_slice(env, b"**ID:** "));
-            parts.push_back(Self::u32_to_bytes(env, task.id));
-            parts.push_back(Bytes::from_slice(env, b"\n\n"));
-
-            parts.push_back(Bytes::from_slice(env, b"**Description:** "));
-            parts.push_back(Self::string_to_bytes(env, &task.description));
-            parts.push_back(Bytes::from_slice(env, b"\n\n"));
-
-            parts.push_back(Bytes::from_slice(env, b"**Status:** "));
-            parts.push_back(Bytes::from_slice(env, status));
-            parts.push_back(Bytes::from_slice(env, b"\n\n"));
+            md = md
+                .raw_str("**ID:** ")
+                .number(task.id)
+                .newline()
+                .newline()
+                .raw_str("**Description:** ")
+                .text_string(&task.description)
+                .newline()
+                .newline()
+                .raw_str("**Status:** ")
+                .text(status)
+                .newline()
+                .newline();
 
             // Action buttons
             if !task.completed {
-                parts.push_back(Bytes::from_slice(env, b"[Mark Complete](tx:complete_task {\"id\":"));
-                parts.push_back(Self::u32_to_bytes(env, task.id));
-                parts.push_back(Bytes::from_slice(env, b"}) | "));
+                md = md
+                    .tx_link_id("Mark Complete", "complete_task", task.id)
+                    .text(" | ");
             }
-            parts.push_back(Bytes::from_slice(env, b"[Delete](tx:delete_task {\"id\":"));
-            parts.push_back(Self::u32_to_bytes(env, task.id));
-            parts.push_back(Bytes::from_slice(env, b"})\n\n"));
-
-            parts.push_back(Bytes::from_slice(env, b"[Back to list](render:/)\n"));
+            md = md
+                .tx_link_id("Delete", "delete_task", task.id)
+                .newline()
+                .newline()
+                .render_link("Back to list", "/");
         } else {
-            parts.push_back(Bytes::from_slice(env, b"*Task not found*\n\n[Back to list](render:/)\n"));
+            md = md
+                .paragraph("*Task not found*")
+                .render_link("Back to list", "/");
         }
 
-        Self::concat_bytes(env, &parts)
+        md.build()
     }
 
     /// Render footer component - can be included via {{include contract=SELF func="footer"}}
     pub fn render_footer(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
-        Bytes::from_slice(&env, b"\n---\n\n*Powered by [Soroban Render](https://github.com/wyhaines/soroban-render)*\n")
+        MarkdownBuilder::new(&env)
+            .hr()
+            .paragraph("*Powered by [Soroban Render](https://github.com/wyhaines/soroban-render)*")
+            .build()
     }
 
     /// Render header component - can be included via {{include contract=SELF func="header"}}
     pub fn render_header(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
-        Bytes::from_slice(&env, b"# Todo List\n\n*A demo app showcasing Soroban Render*\n\n---\n\n")
+        MarkdownBuilder::new(&env)
+            .h1("Todo List")
+            .paragraph("*A demo app showcasing Soroban Render*")
+            .hr()
+            .build()
     }
 
-    fn render_json(env: &Env, tasks: &Map<u32, Task>, subpath: Option<Bytes>, wallet_connected: bool) -> Bytes {
-        let mut parts: Vec<Bytes> = Vec::new(env);
-
+    fn render_json(
+        env: &Env,
+        tasks: &Map<u32, Task>,
+        subpath: Option<Bytes>,
+        wallet_connected: bool,
+    ) -> Bytes {
         // Determine filter from subpath
         let filter = if let Some(ref sp) = subpath {
             let pending_bytes = Bytes::from_slice(env, b"/pending");
@@ -498,38 +503,27 @@ impl TodoContract {
             None
         };
 
-        // Build JSON document following soroban-render-json-v1 format
-        parts.push_back(Bytes::from_slice(env, b"{\"format\":\"soroban-render-json-v1\",\"title\":\"Todo List\",\"components\":["));
-
-        // Heading
-        parts.push_back(Bytes::from_slice(env, b"{\"type\":\"heading\",\"level\":1,\"text\":\"Todo List\"},"));
+        let mut doc = JsonDocument::new(env, "Todo List").heading(1, "Todo List");
 
         if !wallet_connected {
-            // Show connect wallet message
-            parts.push_back(Bytes::from_slice(env, b"{\"type\":\"heading\",\"level\":2,\"text\":\"Connect Your Wallet\"},"));
-            parts.push_back(Bytes::from_slice(env, b"{\"type\":\"text\",\"content\":\"Please connect your wallet to view and manage your personal todo list.\"},"));
-            parts.push_back(Bytes::from_slice(env, b"{\"type\":\"text\",\"content\":\"Each user has their own private task list that only they can see and modify.\"},"));
+            doc = doc
+                .heading(2, "Connect Your Wallet")
+                .text("Please connect your wallet to view and manage your personal todo list.")
+                .text("Each user has their own private task list that only they can see and modify.");
         } else {
             // Form for adding tasks
-            parts.push_back(Bytes::from_slice(env, b"{\"type\":\"form\",\"action\":\"add_task\",\"fields\":[{\"name\":\"description\",\"type\":\"text\",\"placeholder\":\"Enter task description\",\"required\":true}],\"submitLabel\":\"Add Task\"},"));
+            doc = doc
+                .form("add_task")
+                .text_field("description", "Enter task description", true)
+                .submit("Add Task");
 
             // Navigation
-            parts.push_back(Bytes::from_slice(env, b"{\"type\":\"navigation\",\"items\":["));
-            parts.push_back(Bytes::from_slice(env, b"{\"label\":\"All\",\"path\":\"/json\""));
-            if filter.is_none() {
-                parts.push_back(Bytes::from_slice(env, b",\"active\":true"));
-            }
-            parts.push_back(Bytes::from_slice(env, b"},"));
-            parts.push_back(Bytes::from_slice(env, b"{\"label\":\"Pending\",\"path\":\"/json/pending\""));
-            if filter == Some(false) {
-                parts.push_back(Bytes::from_slice(env, b",\"active\":true"));
-            }
-            parts.push_back(Bytes::from_slice(env, b"},"));
-            parts.push_back(Bytes::from_slice(env, b"{\"label\":\"Completed\",\"path\":\"/json/completed\""));
-            if filter == Some(true) {
-                parts.push_back(Bytes::from_slice(env, b",\"active\":true"));
-            }
-            parts.push_back(Bytes::from_slice(env, b"}]},"));
+            doc = doc
+                .nav_start()
+                .nav_item("All", "/json", filter.is_none(), true)
+                .nav_item("Pending", "/json/pending", filter == Some(false), false)
+                .nav_item("Completed", "/json/completed", filter == Some(true), false)
+                .nav_end();
 
             // Count completed vs pending for chart
             let mut completed_count = 0u32;
@@ -544,21 +538,15 @@ impl TodoContract {
 
             // Add pie chart if there are tasks
             if completed_count > 0 || pending_count > 0 {
-                parts.push_back(Bytes::from_slice(env, b"{\"type\":\"chart\",\"chartType\":\"pie\",\"title\":\"Task Status\",\"data\":["));
-                parts.push_back(Bytes::from_slice(env, b"{\"label\":\"Completed\",\"value\":"));
-                parts.push_back(Self::u32_to_bytes(env, completed_count));
-                parts.push_back(Bytes::from_slice(env, b",\"color\":\"#22c55e\"},"));
-                parts.push_back(Bytes::from_slice(env, b"{\"label\":\"Pending\",\"value\":"));
-                parts.push_back(Self::u32_to_bytes(env, pending_count));
-                parts.push_back(Bytes::from_slice(env, b",\"color\":\"#eab308\"}"));
-                parts.push_back(Bytes::from_slice(env, b"]},"));
+                doc = doc
+                    .pie_chart_start("Task Status")
+                    .pie_slice("Completed", completed_count, "#22c55e", true)
+                    .pie_slice("Pending", pending_count, "#eab308", false)
+                    .pie_chart_end();
             }
 
             // Tasks heading
-            parts.push_back(Bytes::from_slice(env, b"{\"type\":\"heading\",\"level\":2,\"text\":\"Your Tasks\"},"));
-
-            // Task list as container
-            parts.push_back(Bytes::from_slice(env, b"{\"type\":\"container\",\"className\":\"task-list\",\"components\":["));
+            doc = doc.heading(2, "Your Tasks").container_start("task-list");
 
             let mut task_count = 0u32;
             for (_, task) in tasks.iter() {
@@ -569,139 +557,34 @@ impl TodoContract {
                     }
                 }
 
-                if task_count > 0 {
-                    parts.push_back(Bytes::from_slice(env, b","));
-                }
-
-                // Task component
-                parts.push_back(Bytes::from_slice(env, b"{\"type\":\"task\",\"id\":"));
-                parts.push_back(Self::u32_to_bytes(env, task.id));
-                parts.push_back(Bytes::from_slice(env, b",\"text\":\""));
-                parts.push_back(Self::escape_json_string(env, &task.description));
-                parts.push_back(Bytes::from_slice(env, b"\",\"completed\":"));
-                if task.completed {
-                    parts.push_back(Bytes::from_slice(env, b"true"));
-                } else {
-                    parts.push_back(Bytes::from_slice(env, b"false"));
-                }
-
-                // Actions
-                parts.push_back(Bytes::from_slice(env, b",\"actions\":["));
-                let mut action_count = 0u32;
+                // Build task with actions
+                let mut task_builder = doc.task_string(task.id, &task.description, task.completed);
 
                 if !task.completed {
-                    parts.push_back(Bytes::from_slice(env, b"{\"type\":\"tx\",\"method\":\"complete_task\",\"args\":{\"id\":"));
-                    parts.push_back(Self::u32_to_bytes(env, task.id));
-                    parts.push_back(Bytes::from_slice(env, b"},\"label\":\"Done\"}"));
-                    action_count += 1;
+                    task_builder = task_builder.tx_action("complete_task", task.id, "Done");
                 }
+                task_builder = task_builder.tx_action("delete_task", task.id, "Delete");
 
-                if action_count > 0 {
-                    parts.push_back(Bytes::from_slice(env, b","));
-                }
-                parts.push_back(Bytes::from_slice(env, b"{\"type\":\"tx\",\"method\":\"delete_task\",\"args\":{\"id\":"));
-                parts.push_back(Self::u32_to_bytes(env, task.id));
-                parts.push_back(Bytes::from_slice(env, b"},\"label\":\"Delete\"}"));
-
-                parts.push_back(Bytes::from_slice(env, b"]}"));
+                doc = task_builder.end();
                 task_count += 1;
             }
 
             // If no tasks, add a text component
             if task_count == 0 {
-                if filter.is_some() {
-                    parts.push_back(Bytes::from_slice(env, b"{\"type\":\"text\",\"content\":\"No matching tasks.\"}"));
+                doc = if filter.is_some() {
+                    doc.text("No matching tasks.")
                 } else {
-                    parts.push_back(Bytes::from_slice(env, b"{\"type\":\"text\",\"content\":\"No tasks yet. Add one above!\"}"));
-                }
+                    doc.text("No tasks yet. Add one above!")
+                };
             }
 
-            parts.push_back(Bytes::from_slice(env, b"]},"));
+            doc = doc.container_end();
         }
 
         // Divider and footer
-        parts.push_back(Bytes::from_slice(env, b"{\"type\":\"divider\"},"));
-        parts.push_back(Bytes::from_slice(env, b"{\"type\":\"text\",\"content\":\"Powered by Soroban Render\"}"));
-
-        // Close components array and document
-        parts.push_back(Bytes::from_slice(env, b"]}"));
-
-        Self::concat_bytes(env, &parts)
-    }
-
-    fn escape_json_string(env: &Env, s: &String) -> Bytes {
-        let input = Self::string_to_bytes(env, s);
-        let mut result = Bytes::new(env);
-
-        for i in 0..input.len() {
-            if let Some(b) = input.get(i) {
-                match b {
-                    b'"' => {
-                        result.push_back(b'\\');
-                        result.push_back(b'"');
-                    }
-                    b'\\' => {
-                        result.push_back(b'\\');
-                        result.push_back(b'\\');
-                    }
-                    b'\n' => {
-                        result.push_back(b'\\');
-                        result.push_back(b'n');
-                    }
-                    b'\r' => {
-                        result.push_back(b'\\');
-                        result.push_back(b'r');
-                    }
-                    b'\t' => {
-                        result.push_back(b'\\');
-                        result.push_back(b't');
-                    }
-                    _ => {
-                        result.push_back(b);
-                    }
-                }
-            }
-        }
-
-        result
-    }
-
-    fn string_to_bytes(env: &Env, s: &String) -> Bytes {
-        let mut buf = [0u8; 256];
-        let len = s.len() as usize;
-        s.copy_into_slice(&mut buf[..len]);
-        Bytes::from_slice(env, &buf[..len])
-    }
-
-    fn concat_bytes(env: &Env, parts: &Vec<Bytes>) -> Bytes {
-        let mut result = Bytes::new(env);
-        for part in parts.iter() {
-            result.append(&part);
-        }
-        result
-    }
-
-    fn u32_to_bytes(env: &Env, n: u32) -> Bytes {
-        if n == 0 {
-            return Bytes::from_slice(env, b"0");
-        }
-
-        let mut num = n;
-        let mut digits: [u8; 10] = [0; 10];
-        let mut i = 0;
-
-        while num > 0 {
-            digits[i] = b'0' + (num % 10) as u8;
-            num /= 10;
-            i += 1;
-        }
-
-        // Reverse the digits
-        let mut result = Bytes::new(env);
-        for j in (0..i).rev() {
-            result.push_back(digits[j]);
-        }
-        result
+        doc.divider()
+            .text("Powered by Soroban Render")
+            .build()
     }
 }
 
@@ -904,9 +787,9 @@ mod test {
         // Stats now shown in columns with heading
         assert!(output_str.contains(":::columns"));
         assert!(output_str.contains("Total Tasks"));
-        assert!(output_str.contains("# 2"));  // The number shown as heading
+        assert!(output_str.contains("2")); // The number
         assert!(output_str.contains("Unique Users"));
-        assert!(output_str.contains("# 1"));  // The number shown as heading
+        assert!(output_str.contains("1")); // The number
         // Check for INFO alert
         assert!(output_str.contains("[!INFO]"));
     }

@@ -4,11 +4,11 @@
 //! This entire file IS the frontend for this dApp.
 
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contractmeta, Address, Bytes, Env, String, Vec};
+use soroban_sdk::{contract, contractimpl, Address, Env, String};
+use soroban_render_sdk::prelude::*;
 
 // Declare render support - viewers check this metadata
-contractmeta!(key = "render", val = "v1");
-contractmeta!(key = "render_formats", val = "markdown");
+soroban_render!(markdown);
 
 #[contract]
 pub struct HelloContract;
@@ -18,30 +18,18 @@ impl HelloContract {
     /// Render the contract UI as Markdown.
     /// This single function provides the entire frontend.
     pub fn render(env: Env, _path: Option<String>, viewer: Option<Address>) -> Bytes {
-        let mut parts: Vec<Bytes> = Vec::new(&env);
-
         match viewer {
-            Some(_) => {
-                parts.push_back(Bytes::from_slice(&env, b"# Hello, Stellar User!\n\n"));
-                parts.push_back(Bytes::from_slice(&env, b"Your wallet is connected.\n\n"));
-                parts.push_back(Bytes::from_slice(&env, b"Welcome to **Soroban Render** - where your smart contract IS your frontend."));
-            }
-            None => {
-                parts.push_back(Bytes::from_slice(&env, b"# Hello, World!\n\n"));
-                parts.push_back(Bytes::from_slice(&env, b"Connect your wallet to see a personalized greeting.\n\n"));
-                parts.push_back(Bytes::from_slice(&env, b"This UI is rendered directly from the smart contract."));
-            }
-        };
-
-        Self::concat_bytes(&env, &parts)
-    }
-
-    fn concat_bytes(env: &Env, parts: &Vec<Bytes>) -> Bytes {
-        let mut result = Bytes::new(env);
-        for part in parts.iter() {
-            result.append(&part);
+            Some(_) => MarkdownBuilder::new(&env)
+                .h1("Hello, Stellar User!")
+                .paragraph("Your wallet is connected.")
+                .paragraph("Welcome to **Soroban Render** - where your smart contract IS your frontend.")
+                .build(),
+            None => MarkdownBuilder::new(&env)
+                .h1("Hello, World!")
+                .paragraph("Connect your wallet to see a personalized greeting.")
+                .paragraph("This UI is rendered directly from the smart contract.")
+                .build(),
         }
-        result
     }
 }
 
@@ -49,6 +37,7 @@ impl HelloContract {
 mod test {
     use super::*;
     use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::Env;
 
     #[test]
     fn test_render_without_wallet() {

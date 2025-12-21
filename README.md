@@ -21,14 +21,14 @@ Inspired by [Gno.land's `Render()` function](https://docs.gno.land/users/explore
 
 ## Hello World
 
-This is a complete, renderable Soroban dApp:
+This is a complete, renderable Soroban dApp using the SDK:
 
 ```rust
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contractmeta, Address, Bytes, Env, String, Vec};
+use soroban_sdk::{contract, contractimpl, Address, Env, String};
+use soroban_render_sdk::prelude::*;
 
-contractmeta!(key = "render", val = "v1");
-contractmeta!(key = "render_formats", val = "markdown");
+soroban_render!(markdown);
 
 #[contract]
 pub struct HelloContract;
@@ -36,31 +36,39 @@ pub struct HelloContract;
 #[contractimpl]
 impl HelloContract {
     pub fn render(env: Env, _path: Option<String>, viewer: Option<Address>) -> Bytes {
-        let mut parts: Vec<Bytes> = Vec::new(&env);
-
         match viewer {
-            Some(_) => {
-                parts.push_back(Bytes::from_slice(&env, b"# Hello, Stellar User!\n\n"));
-                parts.push_back(Bytes::from_slice(&env, b"Your wallet is connected."));
-            }
-            None => {
-                parts.push_back(Bytes::from_slice(&env, b"# Hello, World!\n\n"));
-                parts.push_back(Bytes::from_slice(&env, b"Connect your wallet for a personalized greeting."));
-            }
-        };
-
-        Self::concat_bytes(&env, &parts)
-    }
-
-    fn concat_bytes(env: &Env, parts: &Vec<Bytes>) -> Bytes {
-        let mut result = Bytes::new(env);
-        for part in parts.iter() { result.append(&part); }
-        result
+            Some(_) => MarkdownBuilder::new(&env)
+                .h1("Hello, Stellar User!")
+                .paragraph("Your wallet is connected.")
+                .build(),
+            None => MarkdownBuilder::new(&env)
+                .h1("Hello, World!")
+                .paragraph("Connect your wallet for a personalized greeting.")
+                .build(),
+        }
     }
 }
 ```
 
 Deploy it, and view it instantly.
+
+## The SDK
+
+The [soroban-render-sdk](https://github.com/wyhaines/soroban-render-sdk) provides builders and utilities to make contract development easier:
+
+```toml
+[dependencies]
+soroban-render-sdk = { git = "https://github.com/wyhaines/soroban-render-sdk.git" }
+```
+
+**Features:**
+- `MarkdownBuilder` — Fluent API for markdown construction
+- `JsonDocument` — Type-safe JSON UI builder
+- `Router` — Declarative path-based routing
+- `soroban_render!()` macro — Simple metadata declaration
+- Utilities for byte conversion, JSON escaping, and more
+
+You can also build without the SDK using raw bytes — see [docs/hello-world.md](docs/hello-world.md) for a comparison.
 
 ## Viewing Your Contract
 

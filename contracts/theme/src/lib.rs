@@ -1,9 +1,9 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contractmeta, Address, Bytes, Env, String};
+use soroban_sdk::{contract, contractimpl, Address, Env, String};
+use soroban_render_sdk::prelude::*;
 
 // Metadata for render support
-contractmeta!(key = "render", val = "v1");
-contractmeta!(key = "render_formats", val = "markdown");
+soroban_render!(markdown);
 
 #[contract]
 pub struct ThemeContract;
@@ -15,68 +15,51 @@ impl ThemeContract {
 
     /// Main render function - returns available components list
     pub fn render(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
-        let output = "# Soroban Render Theme Components
-
-This contract provides reusable UI components for Soroban Render apps.
-
-## Available Components
-
-- `render_header` - App header with branding
-- `render_footer` - App footer with credits
-- `render_nav` - Navigation component
-
-## Usage
-
-Include these in your contract's render output:
-
-```
-{{include contract=THEME_CONTRACT_ID func=\"header\"}}
-{{include contract=THEME_CONTRACT_ID func=\"nav\"}}
-{{include contract=THEME_CONTRACT_ID func=\"footer\"}}
-```
-";
-        Bytes::from_slice(&env, output.as_bytes())
+        MarkdownBuilder::new(&env)
+            .h1("Soroban Render Theme Components")
+            .paragraph("This contract provides reusable UI components for Soroban Render apps.")
+            .h2("Available Components")
+            .list_item("`render_header` - App header with branding")
+            .list_item("`render_footer` - App footer with credits")
+            .list_item("`render_nav` - Navigation component")
+            .h2("Usage")
+            .paragraph("Include these in your contract's render output:")
+            .raw_str("```\n{{include contract=THEME_CONTRACT_ID func=\"header\"}}\n{{include contract=THEME_CONTRACT_ID func=\"nav\"}}\n{{include contract=THEME_CONTRACT_ID func=\"footer\"}}\n```\n")
+            .build()
     }
 
     /// Render header component
     pub fn render_header(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
-        let output = "# Todo List Demo
-
-**This entire UI is rendered from a Soroban smart contract.**
-
-The contract defines its own interface using markdown with embedded forms and action links.
-The [Soroban Render Viewer](https://wyhaines.github.io/soroban-render/) fetches and displays it.
-
-[View Source on GitHub](https://github.com/wyhaines/soroban-render)
-
----
-
-";
-        Bytes::from_slice(&env, output.as_bytes())
+        MarkdownBuilder::new(&env)
+            .h1("Todo List Demo")
+            .paragraph("**This entire UI is rendered from a Soroban smart contract.**")
+            .paragraph("The contract defines its own interface using markdown with embedded forms and action links. The [Soroban Render Viewer](https://wyhaines.github.io/soroban-render/) fetches and displays it.")
+            .link("View Source on GitHub", "https://github.com/wyhaines/soroban-render")
+            .newline().newline()
+            .hr()
+            .build()
     }
 
     /// Render footer component
     pub fn render_footer(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
-        let output = "
----
-
-### How This Works
-
-This UI comes directly from the smart contract's `render()` function. The contract returns markdown
-with special protocols (`render:`, `tx:`, `form:`) that enable navigation and transactions.
-No separate frontend deployment needed - the contract IS the app.
-
-*Powered by [Soroban Render](https://github.com/wyhaines/soroban-render)* | Built on [Stellar](https://stellar.org)
-";
-        Bytes::from_slice(&env, output.as_bytes())
+        MarkdownBuilder::new(&env)
+            .hr()
+            .h3("How This Works")
+            .paragraph("This UI comes directly from the smart contract's `render()` function. The contract returns markdown with special protocols (`render:`, `tx:`, `form:`) that enable navigation and transactions. No separate frontend deployment needed - the contract IS the app.")
+            .paragraph("*Powered by [Soroban Render](https://github.com/wyhaines/soroban-render)* | Built on [Stellar](https://stellar.org)")
+            .build()
     }
 
     /// Render navigation component
     pub fn render_nav(env: Env, _path: Option<String>, _viewer: Option<Address>) -> Bytes {
-        let output = "[Home](render:/) | [Tasks](render:/tasks) | [About](render:/about)
-
-";
-        Bytes::from_slice(&env, output.as_bytes())
+        MarkdownBuilder::new(&env)
+            .render_link("Home", "/")
+            .text(" | ")
+            .render_link("Tasks", "/tasks")
+            .text(" | ")
+            .render_link("About", "/about")
+            .newline().newline()
+            .build()
     }
 }
 
