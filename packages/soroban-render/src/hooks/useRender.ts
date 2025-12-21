@@ -243,19 +243,22 @@ export function useRender(
                 chunks[index] = chunkHtml; // Use index for ordering
                 continuationContent.set(continuationKey, chunks);
 
-                // Update HTML by replacing continuation placeholder with accumulated content
+                // Update HTML by replacing continuation wrapper with new content
                 setHtml((prevHtml) => {
                   if (!prevHtml) return prevHtml;
 
                   // Join all loaded chunks in order
                   const orderedContent = chunks.filter(Boolean).join("\n");
 
-                  // Replace the continuation placeholder
+                  // Build a wrapper that can be found again for subsequent updates
+                  const newWrapper = `<div class="soroban-progressive-loaded" data-progressive-id="${continuationKey}">${orderedContent}</div>`;
+
+                  // Replace the continuation placeholder or previously loaded wrapper
                   const placeholderRegex = new RegExp(
                     `<div[^>]*data-progressive-id="${continuationKey}"[^>]*>.*?</div>`,
                     "s"
                   );
-                  return prevHtml.replace(placeholderRegex, orderedContent);
+                  return prevHtml.replace(placeholderRegex, newWrapper);
                 });
               } else {
                 // Regular chunk tag - replace placeholder directly
