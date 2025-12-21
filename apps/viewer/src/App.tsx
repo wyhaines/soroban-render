@@ -215,18 +215,18 @@ export default function App() {
 
   if (isEmbedded) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white dark:bg-[#0f0f0f]">
         {/* Minimal header with wallet only */}
         <header className="fixed top-0 right-0 p-4 z-10">
           <div className="flex items-center gap-2">
             {wallet.connected ? (
               <>
-                <span className="text-sm text-gray-600 font-mono bg-white/80 px-2 py-1 rounded">
+                <span className="text-sm text-gray-600 dark:text-gray-300 font-mono bg-white/80 dark:bg-gray-800/80 px-2 py-1 rounded">
                   {wallet.address?.slice(0, 4)}...{wallet.address?.slice(-4)}
                 </span>
                 <button
                   onClick={wallet.disconnect}
-                  className="px-3 py-1.5 text-sm bg-white/80 text-gray-700 rounded-md hover:bg-gray-100 border border-gray-200"
+                  className="px-3 py-1.5 text-sm bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600"
                 >
                   Disconnect
                 </button>
@@ -311,28 +311,28 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f0f0f]">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white dark:bg-[#1c1c1c] shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 Soroban Render Viewer
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Universal viewer for any contract with render()
               </p>
             </div>
             <div className="flex items-center gap-4">
               {wallet.connected ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 font-mono">
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-mono">
                     {wallet.address?.slice(0, 4)}...{wallet.address?.slice(-4)}
                   </span>
                   <button
                     onClick={wallet.disconnect}
-                    className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                    className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
                   >
                     Disconnect
                   </button>
@@ -341,7 +341,7 @@ export default function App() {
                 <button
                   onClick={wallet.connect}
                   disabled={wallet.connecting}
-                  className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  className="px-3 py-1.5 text-sm bg-[#7857e1] text-white rounded-md hover:bg-[#6b4ad1] disabled:opacity-50"
                 >
                   {wallet.connecting ? "Connecting..." : "Connect Wallet"}
                 </button>
@@ -350,7 +350,7 @@ export default function App() {
                 href="https://github.com/wyhaines/soroban-render"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-600 hover:text-gray-900"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
               >
                 <svg
                   className="w-6 h-6"
@@ -371,14 +371,14 @@ export default function App() {
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Controls */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+        <div className="bg-white dark:bg-[#1c1c1c] rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Contract ID Input */}
               <div>
                 <label
                   htmlFor="contractId"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                 >
                   Contract ID
                 </label>
@@ -388,7 +388,7 @@ export default function App() {
                   value={inputContractId}
                   onChange={(e) => setInputContractId(e.target.value)}
                   placeholder="CA... or CB..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7857e1] focus:border-[#7857e1] font-mono text-sm bg-white dark:bg-[#232323] text-gray-900 dark:text-gray-100"
                 />
               </div>
 
@@ -396,7 +396,7 @@ export default function App() {
               <div>
                 <label
                   htmlFor="network"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                 >
                   Network
                 </label>
@@ -404,7 +404,7 @@ export default function App() {
                   id="network"
                   value={network}
                   onChange={(e) => setNetwork(e.target.value as Network)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7857e1] focus:border-[#7857e1] bg-white dark:bg-[#232323] text-gray-900 dark:text-gray-100"
                 >
                   <option value="local">Local (Quickstart)</option>
                   <option value="testnet">Testnet</option>
@@ -419,7 +419,7 @@ export default function App() {
               <div>
                 <label
                   htmlFor="rpcUrl"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                 >
                   Custom RPC URL
                 </label>
@@ -429,7 +429,7 @@ export default function App() {
                   value={customRpcUrl}
                   onChange={(e) => setCustomRpcUrl(e.target.value)}
                   placeholder="https://..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7857e1] focus:border-[#7857e1] bg-white dark:bg-[#232323] text-gray-900 dark:text-gray-100"
                 />
               </div>
             )}
@@ -438,7 +438,7 @@ export default function App() {
             <div>
               <label
                 htmlFor="path"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
                 Path {path !== inputPath && <span className="text-gray-400">(current: {path})</span>}
               </label>
@@ -448,7 +448,7 @@ export default function App() {
                 value={inputPath}
                 onChange={(e) => setInputPath(e.target.value)}
                 placeholder="/task/123"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7857e1] focus:border-[#7857e1] font-mono text-sm bg-white dark:bg-[#232323] text-gray-900 dark:text-gray-100"
               />
             </div>
 
@@ -457,7 +457,7 @@ export default function App() {
               <button
                 type="submit"
                 disabled={!inputContractId.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-[#7857e1] text-white rounded-md hover:bg-[#6b4ad1] focus:outline-none focus:ring-2 focus:ring-[#7857e1] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Load Contract
               </button>
@@ -466,7 +466,7 @@ export default function App() {
                   type="button"
                   onClick={refetch}
                   disabled={loading}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
                 >
                   Refresh
                 </button>
@@ -475,12 +475,12 @@ export default function App() {
           </form>
 
           {/* Network Info */}
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
+          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {network === "local" && (
                 <>
                   Connected to local Stellar Quickstart at{" "}
-                  <code className="bg-gray-100 px-1 py-0.5 rounded">
+                  <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-gray-800 dark:text-gray-200">
                     http://localhost:8000
                   </code>
                 </>
@@ -488,7 +488,7 @@ export default function App() {
               {network === "testnet" && (
                 <>
                   Connected to Stellar Testnet at{" "}
-                  <code className="bg-gray-100 px-1 py-0.5 rounded">
+                  <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-gray-800 dark:text-gray-200">
                     soroban-testnet.stellar.org
                   </code>
                 </>
@@ -496,7 +496,7 @@ export default function App() {
               {network === "mainnet" && (
                 <>
                   Connected to Stellar Mainnet at{" "}
-                  <code className="bg-gray-100 px-1 py-0.5 rounded">
+                  <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-gray-800 dark:text-gray-200">
                     soroban.stellar.org
                   </code>
                 </>
@@ -504,7 +504,7 @@ export default function App() {
               {network === "custom" && customRpcUrl && (
                 <>
                   Connected to{" "}
-                  <code className="bg-gray-100 px-1 py-0.5 rounded">
+                  <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-gray-800 dark:text-gray-200">
                     {customRpcUrl}
                   </code>
                 </>
@@ -547,7 +547,7 @@ export default function App() {
         <style>{jsonStyles}</style>
 
         {/* Rendered Content */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-[#1c1c1c] rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           {format === "json" && jsonDocument ? (
             <InteractiveJsonRenderView
               document={jsonDocument}
@@ -579,7 +579,7 @@ export default function App() {
           {/* Empty State */}
           {!contractId && !loading && !error && (
             <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
+              <div className="text-gray-400 dark:text-gray-500 mb-4">
                 <svg
                   className="w-16 h-16 mx-auto"
                   fill="none"
@@ -594,18 +594,18 @@ export default function App() {
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
                 No Contract Loaded
               </h3>
-              <p className="text-gray-600 max-w-md mx-auto">
+              <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
                 Enter any Soroban contract ID to render its UI. The contract
-                must implement the <code className="bg-gray-100 px-1 rounded">render()</code> convention.
+                must implement the <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">render()</code> convention.
               </p>
-              <div className="mt-6 text-sm text-gray-500">
+              <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
                 <p className="font-medium mb-2">How it works:</p>
                 <p className="text-left max-w-md mx-auto mb-4">
                   Contracts define their own UI by returning markdown or JSON from a{" "}
-                  <code className="bg-gray-100 px-1 rounded">render(path, viewer)</code> function.
+                  <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">render(path, viewer)</code> function.
                   This viewer fetches and displays that UI, handling navigation and transactions.
                 </p>
                 <p className="font-medium mb-2">Try an example:</p>
@@ -619,22 +619,22 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 mt-12 py-6">
-        <div className="max-w-6xl mx-auto px-4 text-center text-sm text-gray-500">
+      <footer className="border-t border-gray-200 dark:border-gray-700 mt-12 py-6">
+        <div className="max-w-6xl mx-auto px-4 text-center text-sm text-gray-500 dark:text-gray-400">
           <p>
             Soroban Render Viewer - Works with any contract implementing the render() convention
           </p>
           <p className="mt-1">
             <a
               href="https://github.com/wyhaines/soroban-render"
-              className="text-blue-600 hover:underline"
+              className="text-[#7857e1] hover:underline"
             >
               View on GitHub
             </a>
             {" · "}
             <a
               href="https://stellar.org/soroban"
-              className="text-blue-600 hover:underline"
+              className="text-[#7857e1] hover:underline"
             >
               Learn about Soroban
             </a>

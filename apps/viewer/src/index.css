@@ -2,82 +2,299 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base styles */
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: #f9fafb;
-  color: #111827;
+/* =============================================================================
+   Stellar Design System Styles
+   Based on @stellar/design-system color palette
+   Using direct color values to avoid CSS variable nesting issues
+   ============================================================================= */
+
+:root {
+  /* Typography */
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-mono: 'Inconsolata', 'Monaco', 'Menlo', 'Courier New', monospace;
+
+  /* Light mode colors (default) */
+  --color-primary: #7857e1;
+  --color-primary-hover: #6b4ad1;
+  --color-primary-active: #5a3dab;
+  --color-primary-light: #f1efff;
+
+  --color-success: #30a46c;
+  --color-success-bg: #e3f9e8;
+  --color-success-text: #18794e;
+
+  --color-warning: #ffc53d;
+  --color-warning-bg: #fff2d4;
+  --color-warning-text: #946800;
+
+  --color-danger: #e5484d;
+  --color-danger-hover: #d93d42;
+  --color-danger-bg: #ffebeb;
+  --color-danger-text: #c62a2f;
+
+  --color-info: #009eb5;
+  --color-info-bg: #def7fb;
+  --color-info-text: #007888;
+
+  --color-text: #171717;
+  --color-text-secondary: #6f6f6f;
+  --color-text-muted: #8f8f8f;
+
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f8f8f8;
+  --color-bg-muted: #f3f3f3;
+  --color-bg-emphasis: #ededed;
+
+  --color-border: #e2e2e2;
+  --color-border-subtle: #e8e8e8;
+  --color-border-emphasis: #c7c7c7;
+
+  --color-code: #5a3dab;
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(120, 87, 225, 0.35);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-/* Soroban Render view styles */
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #9176e8;
+    --color-primary-hover: #a28fec;
+    --color-primary-active: #b7ace8;
+    --color-primary-light: #2a2340;
+
+    --color-success: #46bd6e;
+    --color-success-bg: #1a3d2a;
+    --color-success-text: #6cd390;
+
+    --color-warning: #ffc53d;
+    --color-warning-bg: #3d2e0a;
+    --color-warning-text: #f5b31a;
+
+    --color-danger: #f56565;
+    --color-danger-hover: #fc8181;
+    --color-danger-bg: #3d1a1a;
+    --color-danger-text: #fc8181;
+
+    --color-info: #00b4cf;
+    --color-info-bg: #0a3d4d;
+    --color-info-text: #45d3ea;
+
+    --color-text: #eeeeee;
+    --color-text-secondary: #b4b4b4;
+    --color-text-muted: #8f8f8f;
+
+    --color-bg: #0f0f0f;
+    --color-bg-subtle: #1c1c1c;
+    --color-bg-muted: #232323;
+    --color-bg-emphasis: #2a2a2a;
+
+    --color-border: #3e3e3e;
+    --color-border-subtle: #323232;
+    --color-border-emphasis: #6a6a6a;
+
+    --color-code: #b7ace8;
+
+    --focus-ring: 0 0 0 3px rgba(145, 118, 232, 0.4);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* =============================================================================
+   Base styles
+   ============================================================================= */
+
+body {
+  margin: 0;
+  font-family: var(--font-family-base);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* =============================================================================
+   Soroban Render view styles
+   ============================================================================= */
+
+.soroban-render-view {
+  font-family: var(--font-family-base);
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+/* Headings */
 .soroban-render-view h1 {
-  @apply text-3xl font-bold mb-4 pb-2 border-b border-gray-200;
+  font-size: 1.875rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .soroban-render-view h2 {
-  @apply text-2xl font-semibold mt-6 mb-3;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 2rem 0 1rem 0;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
 }
 
 .soroban-render-view h3 {
-  @apply text-xl font-semibold mt-4 mb-2;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.75rem 0;
+  color: var(--color-text);
 }
 
+.soroban-render-view h4 {
+  font-size: 1.125rem;
+  font-weight: 500;
+  margin: 1.25rem 0 0.5rem 0;
+  color: var(--color-text);
+}
+
+/* Paragraphs and text */
 .soroban-render-view p {
-  @apply my-2;
+  margin: 0.75rem 0;
+  color: var(--color-text);
 }
 
-.soroban-render-view ul, .soroban-render-view ol {
-  @apply my-2 pl-6;
+.soroban-render-view strong {
+  font-weight: 600;
+}
+
+/* Lists */
+.soroban-render-view ul,
+.soroban-render-view ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+  color: var(--color-text);
 }
 
 .soroban-render-view li {
-  @apply my-1;
+  margin: 0.375rem 0;
 }
 
+.soroban-render-view ul {
+  list-style-type: disc;
+}
+
+.soroban-render-view ol {
+  list-style-type: decimal;
+}
+
+/* Code */
 .soroban-render-view code {
-  @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono;
+  font-family: var(--font-family-mono);
+  font-size: 0.9em;
+  background-color: var(--color-bg-muted);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  color: var(--color-code);
 }
 
 .soroban-render-view pre {
-  @apply bg-gray-100 p-4 rounded overflow-x-auto my-4;
+  background-color: var(--color-bg-muted);
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1rem 0;
+  border: 1px solid var(--color-border-subtle);
 }
 
 .soroban-render-view pre code {
-  @apply bg-transparent p-0;
+  background: transparent;
+  padding: 0;
+  color: var(--color-text);
+  font-size: 0.875rem;
 }
 
+/* Blockquotes */
 .soroban-render-view blockquote {
-  @apply border-l-4 border-gray-300 pl-4 my-4 text-gray-600 italic;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--color-primary);
+  background-color: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  border-radius: 0 4px 4px 0;
 }
 
+.soroban-render-view blockquote p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+/* Links */
 .soroban-render-view a {
-  @apply text-blue-600 hover:underline;
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color 100ms ease-out;
 }
 
+.soroban-render-view a:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+.soroban-render-view a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 2px;
+}
+
+/* Tables */
 .soroban-render-view table {
-  @apply w-full border-collapse my-4;
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.875rem;
 }
 
-.soroban-render-view th, .soroban-render-view td {
-  @apply border border-gray-300 px-4 py-2 text-left;
+.soroban-render-view th,
+.soroban-render-view td {
+  border: 1px solid var(--color-border);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  color: var(--color-text);
 }
 
 .soroban-render-view th {
-  @apply bg-gray-50 font-semibold;
+  background-color: var(--color-bg-muted);
+  font-weight: 600;
 }
 
+.soroban-render-view tr:hover td {
+  background-color: var(--color-bg-subtle);
+}
+
+/* Horizontal rule */
 .soroban-render-view hr {
-  @apply border-t border-gray-200 my-6;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 2rem 0;
 }
 
+/* Images */
 .soroban-render-view img {
-  @apply max-w-full h-auto rounded;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
 }
 
-/* Form element styles */
+/* =============================================================================
+   Form element styles
+   ============================================================================= */
+
 .soroban-render-view input[type="text"],
 .soroban-render-view input[type="email"],
 .soroban-render-view input[type="url"],
@@ -86,134 +303,358 @@ body {
 .soroban-render-view input[type="search"],
 .soroban-render-view input[type="tel"],
 .soroban-render-view textarea {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm;
-  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
-  @apply text-base my-2;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-family-base);
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+  margin: 0.5rem 0;
+  transition: border-color 100ms ease-out, box-shadow 100ms ease-out;
+}
+
+.soroban-render-view input:focus,
+.soroban-render-view textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.soroban-render-view input::placeholder,
+.soroban-render-view textarea::placeholder {
+  color: var(--color-text-muted);
 }
 
 .soroban-render-view textarea {
-  @apply min-h-[80px] resize-y;
+  min-height: 100px;
+  resize: vertical;
 }
 
 .soroban-render-view select {
-  @apply px-3 py-2 border border-gray-300 rounded-md shadow-sm;
-  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
-  @apply text-base my-2 bg-white;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-family-base);
+  font-size: 1rem;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+  margin: 0.5rem 0;
+  cursor: pointer;
+  transition: border-color 100ms ease-out, box-shadow 100ms ease-out;
+}
+
+.soroban-render-view select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
 }
 
 .soroban-render-view input[type="checkbox"],
 .soroban-render-view input[type="radio"] {
-  @apply w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.soroban-render-view input[type="checkbox"]:focus,
+.soroban-render-view input[type="radio"]:focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .soroban-render-view label {
-  @apply block text-sm font-medium text-gray-700 mb-1;
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  margin-bottom: 0.25rem;
 }
 
-/* Action links styled as buttons */
+/* =============================================================================
+   Action links styled as buttons
+   ============================================================================= */
+
 .soroban-render-view a.soroban-action {
-  @apply inline-block px-4 py-2 bg-blue-600 text-white rounded-md;
-  @apply hover:bg-blue-700 no-underline font-medium;
-  @apply transition-colors duration-150;
-  @apply mr-2 my-1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-family-base);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #ffffff;
+  background-color: var(--color-primary);
+  border-radius: 6px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 100ms ease-out, transform 100ms ease-out, box-shadow 100ms ease-out;
+  margin-right: 0.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.soroban-render-view a.soroban-action:hover {
+  background-color: var(--color-primary-hover);
+  text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.soroban-render-view a.soroban-action:active {
+  background-color: var(--color-primary-active);
+  transform: translateY(0);
+}
+
+.soroban-render-view a.soroban-action:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring), var(--shadow-md);
 }
 
 /* Secondary action variant */
 .soroban-render-view a.soroban-action.secondary {
-  @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+  color: var(--color-text);
+  background-color: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+}
+
+.soroban-render-view a.soroban-action.secondary:hover {
+  background-color: var(--color-bg-emphasis);
+  border-color: var(--color-border-emphasis);
 }
 
 /* Danger action variant */
-.soroban-render-view a.soroban-action[data-action*="delete"] {
-  @apply bg-red-600 hover:bg-red-700;
+.soroban-render-view a.soroban-action[data-action*="delete"],
+.soroban-render-view a.soroban-action.danger {
+  background-color: var(--color-danger);
 }
 
-/* Alert/Callout styles */
+.soroban-render-view a.soroban-action[data-action*="delete"]:hover,
+.soroban-render-view a.soroban-action.danger:hover {
+  background-color: var(--color-danger-hover);
+}
+
+/* Success action variant */
+.soroban-render-view a.soroban-action.success {
+  background-color: var(--color-success);
+}
+
+/* =============================================================================
+   Alert/Callout styles
+   ============================================================================= */
+
 .soroban-render-view .soroban-alert {
-  @apply my-4 p-4 rounded-lg border-l-4;
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 6px;
+  border-left: 4px solid;
 }
 
 .soroban-render-view .soroban-alert-note {
-  @apply bg-blue-50 border-blue-500;
+  background-color: var(--color-primary-light);
+  border-left-color: var(--color-primary);
 }
 
 .soroban-render-view .soroban-alert-warning {
-  @apply bg-yellow-50 border-yellow-500;
+  background-color: var(--color-warning-bg);
+  border-left-color: var(--color-warning);
 }
 
 .soroban-render-view .soroban-alert-tip {
-  @apply bg-green-50 border-green-500;
+  background-color: var(--color-success-bg);
+  border-left-color: var(--color-success);
 }
 
 .soroban-render-view .soroban-alert-info {
-  @apply bg-gray-100 border-gray-500;
+  background-color: var(--color-info-bg);
+  border-left-color: var(--color-info);
 }
 
 .soroban-render-view .soroban-alert-caution {
-  @apply bg-red-50 border-red-500;
+  background-color: var(--color-danger-bg);
+  border-left-color: var(--color-danger);
 }
 
 .soroban-render-view .soroban-alert-title {
-  @apply font-bold mb-2 text-sm uppercase tracking-wide;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
 }
 
 .soroban-render-view .soroban-alert-note .soroban-alert-title {
-  @apply text-blue-700;
+  color: var(--color-primary);
 }
 
 .soroban-render-view .soroban-alert-warning .soroban-alert-title {
-  @apply text-yellow-700;
+  color: var(--color-warning-text);
 }
 
 .soroban-render-view .soroban-alert-tip .soroban-alert-title {
-  @apply text-green-700;
+  color: var(--color-success-text);
 }
 
 .soroban-render-view .soroban-alert-info .soroban-alert-title {
-  @apply text-gray-700;
+  color: var(--color-info-text);
 }
 
 .soroban-render-view .soroban-alert-caution .soroban-alert-title {
-  @apply text-red-700;
+  color: var(--color-danger-text);
 }
 
 .soroban-render-view .soroban-alert-content {
-  @apply text-gray-700;
+  color: var(--color-text-secondary);
 }
 
 .soroban-render-view .soroban-alert-content p {
-  @apply my-1;
+  margin: 0.25rem 0;
+  color: var(--color-text-secondary);
 }
 
-/* Multi-column layout styles */
+/* =============================================================================
+   Multi-column layout styles
+   ============================================================================= */
+
 .soroban-render-view .soroban-columns {
-  @apply grid gap-4 my-4;
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
 }
 
 .soroban-render-view .soroban-columns-1 {
-  @apply grid-cols-1;
+  grid-template-columns: 1fr;
 }
 
 .soroban-render-view .soroban-columns-2 {
-  @apply grid-cols-1 md:grid-cols-2;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .soroban-render-view .soroban-columns-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .soroban-render-view .soroban-columns-3 {
-  @apply grid-cols-1 md:grid-cols-3;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .soroban-render-view .soroban-columns-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .soroban-render-view .soroban-columns-4 {
-  @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-4;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .soroban-render-view .soroban-columns-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .soroban-render-view .soroban-columns-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .soroban-render-view .soroban-column {
-  @apply p-4 bg-gray-50 rounded-lg;
+  padding: 1rem;
+  background-color: var(--color-bg-subtle);
+  border-radius: 6px;
+  border: 1px solid var(--color-border-subtle);
 }
 
 .soroban-render-view .soroban-column > *:first-child {
-  @apply mt-0;
+  margin-top: 0;
 }
 
 .soroban-render-view .soroban-column > *:last-child {
-  @apply mb-0;
+  margin-bottom: 0;
+}
+
+/* =============================================================================
+   Loading and empty states
+   ============================================================================= */
+
+.soroban-render-loading,
+.soroban-render-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--color-text-muted);
+}
+
+.soroban-render-loading .spinner {
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =============================================================================
+   Error states
+   ============================================================================= */
+
+.soroban-render-error {
+  padding: 1rem;
+  background-color: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
+  border-radius: 6px;
+  color: var(--color-danger-text);
+}
+
+.soroban-render-error strong {
+  color: var(--color-danger);
+}
+
+/* =============================================================================
+   Accessibility improvements
+   ============================================================================= */
+
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  z-index: 100;
+  transition: top 100ms ease-out;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
