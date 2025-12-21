@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 soroban-sdk = "22.0.0"
-soroban-render-sdk = { path = "../../../soroban-render-sdk" }
+soroban-render-sdk = { git = "https://github.com/wyhaines/soroban-render-sdk.git" }
 soroban-chonk = { git = "https://github.com/wyhaines/soroban-chonk" }
 
 [dev-dependencies]
