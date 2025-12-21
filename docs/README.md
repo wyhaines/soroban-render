@@ -11,15 +11,27 @@ Welcome to the Soroban Render documentation. This guide will help you understand
 - [Viewing Contracts](./viewing-contracts.md) - How to view any renderable contract
 - [Hello World Comparison](./hello-world.md) - See the simplicity advantage
 
+### Rust SDK
+
+- [Rust SDK Reference](./rust-sdk.md) - Complete API for MarkdownBuilder, JsonDocument, Router
+- [Router Guide](./router-guide.md) - Path matching and routing patterns
+- [Examples](./examples.md) - Walkthrough of example contracts
+
 ### Format References
 
 - [Markdown Format](./markdown-format.md) - Interactive markdown syntax
 - [JSON Format](./json-format.md) - Structured UI definitions
 
+### Guides
+
+- [Testing](./testing.md) - Testing renderable contracts
+- [Best Practices](./best-practices.md) - Design patterns and recommendations
+- [Troubleshooting](./troubleshooting.md) - Common issues and solutions
+
 ### Integration
 
 - [React Integration](./react-integration.md) - Using the library in React apps
-- [API Reference](./api-reference.md) - Complete API documentation
+- [API Reference](./api-reference.md) - Complete TypeScript/JavaScript API
 
 
 ## Learning Path
@@ -33,12 +45,19 @@ Welcome to the Soroban Render documentation. This guide will help you understand
 
 **Ready to build?** Jump to:
 
+- [Rust SDK Reference](./rust-sdk.md) for the recommended builder APIs
+- [Examples](./examples.md) to learn from working contracts
 - [Markdown Format](./markdown-format.md) for the full syntax reference
-- [React Integration](./react-integration.md) if you're building a custom viewer
+
+**Building a custom viewer?**
+
+- [React Integration](./react-integration.md) for React hooks and components
+- [API Reference](./api-reference.md) for the TypeScript/JavaScript API
 
 
 ## External Resources
 
+- [Soroban Render SDK](https://github.com/wyhaines/soroban-render-sdk) - Rust SDK for building contracts
 - [Soroban Documentation](https://soroban.stellar.org/docs)
 - [Stellar Developer Portal](https://developers.stellar.org)
 - [Gno.land Render Concept](https://docs.gno.land/users/explore-with-gnoweb/#viewing-rendered-content) (inspiration)

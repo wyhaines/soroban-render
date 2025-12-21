@@ -21,6 +21,16 @@ Markdown remains the better choice for content-focused interfaces, rapid prototy
 }
 ```
 
+**With the SDK:**
+```rust
+use soroban_render_sdk::prelude::*;
+
+JsonDocument::new(&env, "My Application")
+    .heading(1, "Hello")
+    .text("Welcome to my app")
+    .build()
+```
+
 **Required fields:**
 - `format` - Must be `"soroban-render-json-v1"`
 - `components` - Array of component objects
@@ -125,6 +135,14 @@ Horizontal rule separator.
 }
 ```
 
+**With the SDK:**
+```rust
+.form("add_task")
+    .text_field("title", "Task title", true)
+    .textarea_field("description", "Details")
+    .submit("Add Task")
+```
+
 **Field types:**
 - `text` - Single line input
 - `textarea` - Multi-line input
@@ -175,6 +193,19 @@ Specialized component for todo-style items:
 }
 ```
 
+**With the SDK:**
+```rust
+.task(1, "Buy groceries", false)
+    .tx_action("complete_task", 1, "Done")
+    .tx_action("delete_task", 1, "Delete")
+    .end()
+
+// With dynamic text:
+.task_string(task.id, &task.description, task.completed)
+    .tx_action("complete_task", task.id, "Done")
+    .end()
+```
+
 ### Navigation
 
 ```json
@@ -186,6 +217,15 @@ Specialized component for todo-style items:
     { "label": "About", "path": "/about" }
   ]
 }
+```
+
+**With the SDK:**
+```rust
+.nav_start()
+.nav_item("Home", "/", true, true)      // label, path, active, first
+.nav_item("Tasks", "/tasks", false, false)
+.nav_item("About", "/about", false, false)
+.nav_end()
 ```
 
 ### Container
@@ -232,6 +272,14 @@ Include content from another contract:
 }
 ```
 
+**With the SDK:**
+```rust
+.pie_chart_start("Task Distribution")
+.pie_slice("Completed", 75, "#22c55e", true)   // label, value, color, first
+.pie_slice("Pending", 25, "#eab308", false)
+.pie_chart_end()
+```
+
 ### Gauge Chart
 
 ```json
@@ -243,6 +291,11 @@ Include content from another contract:
   "label": "Progress",
   "color": "#3b82f6"
 }
+```
+
+**With the SDK:**
+```rust
+.gauge(75, 100, "Progress")  // value, max, label
 ```
 
 ### Bar Chart

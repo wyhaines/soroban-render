@@ -31,6 +31,24 @@ GitHub Flavored Markdown extensions are also supported:
 - Strikethrough (`~~text~~`)
 - Autolinks
 
+**With the SDK:**
+```rust
+use soroban_render_sdk::prelude::*;
+
+MarkdownBuilder::new(&env)
+    .h1("Heading 1")
+    .h2("Heading 2")
+    .bold("Bold")
+    .text(" and ")
+    .italic("italic")
+    .text(" text")
+    .newline().newline()
+    .list_item("Unordered lists")
+    .list_item("With multiple items")
+    .link("Regular links", "https://example.com")
+    .build()
+```
+
 
 ## Interactive Protocols
 
@@ -44,6 +62,13 @@ Navigate to different paths within the contract:
 [Task Details](render:/task/123)
 ```
 
+**With the SDK:**
+```rust
+.render_link("Home", "/")
+.render_link("About Page", "/about")
+.render_link("Task Details", "/task/123")
+```
+
 When clicked, the viewer calls `render()` with the new path and re-renders.
 
 ### Transactions: `tx:`
@@ -54,6 +79,13 @@ Trigger contract method calls:
 [Complete Task](tx:complete_task {"id":1})
 [Delete](tx:delete_task {"id":42})
 [Simple Action](tx:do_something)
+```
+
+**With the SDK:**
+```rust
+.tx_link_id("Complete Task", "complete_task", 1)  // Builds {"id":1}
+.tx_link_id("Delete", "delete_task", 42)
+.tx_link("Simple Action", "do_something", "")     // No args
 ```
 
 **Syntax:** `tx:method_name` optionally followed by a JSON object of arguments.
@@ -96,6 +128,13 @@ Collect input values and submit them as transaction arguments:
 [Submit](form:add_item)
 ```
 
+**With the SDK:**
+```rust
+.input("title", "Enter title")
+.textarea("description", 3, "Enter description")
+.form_link("Submit", "add_item")
+```
+
 The viewer collects all named input values and passes them to the specified method.
 
 **Supported input types:**
@@ -125,6 +164,18 @@ GitHub-style alert syntax for highlighting important information:
 
 > [!CAUTION]
 > This action cannot be undone!
+```
+
+**With the SDK:**
+```rust
+.note("This is informational content.")
+.tip("Here's a helpful suggestion.")
+.info("Additional context about something.")
+.warning("Be careful with this action.")
+.caution("This action cannot be undone!")
+
+// Or with custom type:
+.alert("IMPORTANT", "Custom alert type.")
 ```
 
 **Alert Types:**
@@ -157,6 +208,19 @@ Optional third column.
 :::
 ```
 
+**With the SDK:**
+```rust
+.columns_start()
+.bold("First Column")
+.newline().newline()
+.text("Content for the first column.")
+.column_separator()
+.bold("Second Column")
+.newline().newline()
+.text("Content for the second column.")
+.columns_end()
+```
+
 **Features:**
 - 2-4 columns supported
 - Responsive: stacks on mobile
@@ -174,6 +238,18 @@ Include UI components from other contracts:
 Your content here...
 
 {{include contract=CABC...XYZ func="footer"}}
+```
+
+**With the SDK:**
+```rust
+const THEME_ID: &str = "CABC...XYZ";
+
+.include(THEME_ID, "header")
+// Your content here...
+.include(THEME_ID, "footer")
+
+// With path argument:
+.include_with_path(THEME_ID, "render", "/tasks")
 ```
 
 **Parameters:**
