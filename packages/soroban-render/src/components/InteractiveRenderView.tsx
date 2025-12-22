@@ -293,9 +293,14 @@ export function InteractiveRenderView({
 
         const formInputs = collectFormInputs(container, link);
 
+        // Debug: log collected form inputs
+        console.log("[soroban-render] Form inputs collected:", formInputs);
+
         // Extract redirect path if present (for navigation after success)
         const redirectPath = formInputs._redirect;
         delete formInputs._redirect;
+
+        console.log("[soroban-render] Redirect path:", redirectPath);
 
         // Check if required inputs are filled (excluding underscore-prefixed metadata fields)
         const visibleInputs = Object.entries(formInputs)
@@ -326,7 +331,13 @@ export function InteractiveRenderView({
           onError?.(result.error);
         } else if (result.success && redirectPath && onPathChange) {
           // Navigate to redirect path on success
+          console.log("[soroban-render] Transaction successful, redirecting to:", redirectPath);
           onPathChange(redirectPath);
+        } else if (result.success) {
+          console.log("[soroban-render] Transaction successful, but no redirect:", {
+            redirectPath,
+            hasOnPathChange: !!onPathChange,
+          });
         }
         return;
       }

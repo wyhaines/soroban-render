@@ -137,13 +137,21 @@ export function collectFormInputs(
   const inputs: Record<string, string> = {};
   const elements = container.querySelectorAll("input, select, textarea");
 
+  console.log("[soroban-render] collectFormInputs: found", elements.length, "form elements");
+
   for (const element of elements) {
+    const name = element.getAttribute("name");
+    const type = element.getAttribute("type");
+
     if (beforeElement && !comesBefore(element, beforeElement)) {
+      console.log("[soroban-render] Skipping element (after link):", { name, type });
       continue;
     }
 
-    const name = element.getAttribute("name");
-    if (!name) continue;
+    if (!name) {
+      console.log("[soroban-render] Skipping element (no name):", { type, element: element.outerHTML.slice(0, 100) });
+      continue;
+    }
 
     if (element instanceof HTMLInputElement) {
       if (element.type === "checkbox" || element.type === "radio") {
@@ -152,11 +160,13 @@ export function collectFormInputs(
         }
       } else {
         inputs[name] = element.value;
+        console.log("[soroban-render] Collected input:", { name, type: element.type, value: element.value });
       }
     } else if (element instanceof HTMLSelectElement) {
       inputs[name] = element.value;
     } else if (element instanceof HTMLTextAreaElement) {
       inputs[name] = element.value;
+      console.log("[soroban-render] Collected textarea:", { name, value: element.value.slice(0, 50) + "..." });
     }
   }
 
