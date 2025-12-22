@@ -151,32 +151,49 @@ export async function parseMarkdown(markdown: string): Promise<string> {
     html = await processColumnBlocks(html, columnBlocks, processMarkdownCore);
   }
 
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      "h1", "h2", "h3", "h4", "h5", "h6",
-      "p", "br", "hr",
-      "ul", "ol", "li",
-      "blockquote", "pre", "code",
-      "a", "strong", "em", "del", "s",
-      "table", "thead", "tbody", "tr", "th", "td",
-      "img",
-      "div", "span",
-      "input", "select", "option", "button", "label", "textarea",
-    ],
-    ALLOWED_ATTR: [
-      "href", "src", "alt", "title", "class", "id",
-      "target", "rel",
-      "name", "type", "placeholder", "value", "required", "disabled",
-      "checked", "selected", "readonly", "maxlength", "minlength",
-      "min", "max", "step", "pattern", "for",
-      "rows", "cols", "size", "wrap",  // textarea/input sizing
-      "style",  // inline styling
-      "data-*",
-    ],
-    ADD_ATTR: ["target", "rel"],
-    FORBID_TAGS: ["script", "style", "iframe", "form"],
-    ALLOW_UNKNOWN_PROTOCOLS: true,
+  // Add hook to preserve 'name' attribute on form elements
+  // DOMPurify strips 'name' by default for security, but we need it for form handling
+  DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+    if (data.attrName === 'name') {
+      const tagName = node.tagName?.toLowerCase();
+      // Only preserve 'name' on form-related elements
+      if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || tagName === 'button') {
+        data.forceKeepAttr = true;
+      }
+    }
   });
+
+  try {
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        "h1", "h2", "h3", "h4", "h5", "h6",
+        "p", "br", "hr",
+        "ul", "ol", "li",
+        "blockquote", "pre", "code",
+        "a", "strong", "em", "del", "s",
+        "table", "thead", "tbody", "tr", "th", "td",
+        "img",
+        "div", "span",
+        "input", "select", "option", "button", "label", "textarea",
+      ],
+      ALLOWED_ATTR: [
+        "href", "src", "alt", "title", "class", "id",
+        "target", "rel",
+        "name", "type", "placeholder", "value", "required", "disabled",
+        "checked", "selected", "readonly", "maxlength", "minlength",
+        "min", "max", "step", "pattern", "for",
+        "rows", "cols", "size", "wrap",  // textarea/input sizing
+        "style",  // inline styling
+        "data-*",
+      ],
+      ADD_ATTR: ["target", "rel"],
+      FORBID_TAGS: ["script", "style", "iframe", "form"],
+      ALLOW_UNKNOWN_PROTOCOLS: true,
+    });
+  } finally {
+    // Clean up hook to avoid affecting other DOMPurify calls
+    DOMPurify.removeAllHooks();
+  }
 }
 
 export function detectFormat(content: string): "markdown" | "json" | "unknown" {

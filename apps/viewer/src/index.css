@@ -295,6 +295,7 @@ body {
    Form element styles
    ============================================================================= */
 
+/* Text inputs - match both explicit type and inputs without type (which default to text) */
 .soroban-render-view input[type="text"],
 .soroban-render-view input[type="email"],
 .soroban-render-view input[type="url"],
@@ -302,6 +303,7 @@ body {
 .soroban-render-view input[type="password"],
 .soroban-render-view input[type="search"],
 .soroban-render-view input[type="tel"],
+.soroban-render-view input:not([type]),
 .soroban-render-view textarea {
   width: 100%;
   padding: 0.5rem 0.75rem;

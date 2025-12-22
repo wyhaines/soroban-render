@@ -21,11 +21,28 @@ export interface TransactionResult {
   error?: string;
 }
 
-function convertArgToScVal(value: unknown): xdr.ScVal {
+function convertArgToScVal(value: unknown, key?: string): xdr.ScVal {
   if (typeof value === "string") {
+    // Check for Stellar address (starts with G, 56 chars)
     if (value.startsWith("G") && value.length === 56) {
       return nativeToScVal(value, { type: "address" });
     }
+
+    // For form fields that look like IDs (e.g., board_id, thread_id, parent_id),
+    // convert to u64 to match typical Soroban contract signatures
+    const isIdField = key && /_id$/i.test(key);
+    const isPureInteger = /^[0-9]+$/.test(value);
+
+    if (isIdField && isPureInteger) {
+      return nativeToScVal(BigInt(value), { type: "u64" });
+    }
+
+    // Handle known numeric fields that should be u32
+    const isU32Field = key && /^(depth|count|index|limit|offset)$/i.test(key);
+    if (isU32Field && isPureInteger) {
+      return nativeToScVal(parseInt(value, 10), { type: "u32" });
+    }
+
     return xdr.ScVal.scvString(value);
   }
   if (typeof value === "number") {
@@ -63,8 +80,11 @@ export async function submitTransaction(
     const sourceAccount = await client.server.getAccount(userAddress);
     const contract = new Contract(contractId);
 
-    // Convert args to ScVal array
-    const args = Object.entries(params.args).map(([, value]) => convertArgToScVal(value));
+    // Convert args to ScVal array, filtering out underscore-prefixed metadata fields
+    // (e.g., _redirect for navigation, _csrf for security tokens, etc.)
+    const args = Object.entries(params.args)
+      .filter(([key]) => !key.startsWith("_"))
+      .map(([key, value]) => convertArgToScVal(value, key));
     const operation = contract.call(params.method, ...args);
 
     const transaction = new TransactionBuilder(sourceAccount, {

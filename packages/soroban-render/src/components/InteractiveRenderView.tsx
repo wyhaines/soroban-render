@@ -293,9 +293,15 @@ export function InteractiveRenderView({
 
         const formInputs = collectFormInputs(container, link);
 
-        // Check if required inputs are filled
-        if (Object.keys(formInputs).length === 0 ||
-            Object.values(formInputs).every(v => !v || v.trim() === "")) {
+        // Extract redirect path if present (for navigation after success)
+        const redirectPath = formInputs._redirect;
+        delete formInputs._redirect;
+
+        // Check if required inputs are filled (excluding underscore-prefixed metadata fields)
+        const visibleInputs = Object.entries(formInputs)
+          .filter(([key]) => !key.startsWith("_"));
+        if (visibleInputs.length === 0 ||
+            visibleInputs.every(([, v]) => !v || v.trim() === "")) {
           onError?.("Please fill in the form fields");
           return;
         }
@@ -318,6 +324,9 @@ export function InteractiveRenderView({
 
         if (!result.success && result.error) {
           onError?.(result.error);
+        } else if (result.success && redirectPath && onPathChange) {
+          // Navigate to redirect path on success
+          onPathChange(redirectPath);
         }
         return;
       }
