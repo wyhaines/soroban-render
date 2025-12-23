@@ -107,15 +107,16 @@ export function useProgressiveRender(
     setErrors([]);
 
     if (parsedRef.current.hasProgressive) {
-      // Estimate total chunks from tags
+      // Estimate total chunks from tags (only for chunk and continue types)
       const tags = parsedRef.current.tags;
       let estimated = 0;
       for (const tag of tags) {
         if (tag.type === "chunk") {
           estimated++;
-        } else if (tag.total !== undefined) {
+        } else if (tag.type === "continue" && tag.total !== undefined) {
           estimated += tag.total - (tag.from ?? 0);
         }
+        // Note: "render" type tags are handled separately by render continuation loading
       }
       setTotalChunks(estimated > 0 ? estimated : null);
     } else {

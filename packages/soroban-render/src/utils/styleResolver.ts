@@ -102,7 +102,6 @@ export async function resolveStyles(
       client,
       options.themeContractId,
       undefined,
-      options.viewer,
       cache,
       cacheTtl
     );
@@ -121,7 +120,6 @@ export async function resolveStyles(
     client,
     options.contractId,
     undefined,
-    options.viewer,
     cache,
     cacheTtl
   );
@@ -145,7 +143,6 @@ export async function resolveStyles(
       client,
       resolvedContractId,
       tag.func,
-      options.viewer,
       cache,
       cacheTtl
     );
@@ -193,7 +190,6 @@ async function fetchContractStyles(
   client: SorobanClient,
   contractId: string,
   func: string | undefined,
-  viewer: string | undefined,
   cache: Map<string, StyleCacheEntry>,
   cacheTtl: number
 ): Promise<string | null> {
@@ -207,22 +203,18 @@ async function fetchContractStyles(
   }
 
   try {
-    // Call styles() or styles_{func}()
-    // Note: We use callRender with functionName to call styles_* functions
-    // This leverages the existing render_* pattern
+    // Call render_styles() or render_styles_{func}()
+    // callRender prepends "render_" so we pass "styles" or "styles_{func}"
     const functionName = func ? `styles_${func}` : "styles";
 
-    const css = await callRender(client, contractId, {
-      functionName,
-      viewer,
-    });
+    const css = await callRender(client, contractId, { functionName });
 
     // Cache the result
     cache.set(cacheKey, { css, timestamp: now });
 
     return css;
   } catch {
-    // Contract may not have a styles function - that's OK
+    // Contract may not have a render_styles function - that's OK
     return null;
   }
 }

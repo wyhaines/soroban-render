@@ -128,3 +128,4 @@ export async function detectRenderSupport(
     return { supported: false };
   }
 }
+

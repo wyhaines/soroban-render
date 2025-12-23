@@ -11,6 +11,7 @@ import {
   type ContinuationTag,
 } from "../parsers/continuation";
 import { ProgressiveLoader } from "../utils/progressiveLoader";
+import { loadRenderContinuations, hasRenderContinuations } from "../utils/renderContinuation";
 
 export interface UseRenderResult {
   html: string | null;
@@ -75,6 +76,21 @@ export interface UseRenderOptions extends RenderOptions {
    * Default: 2
    */
   progressiveMaxConcurrent?: number;
+  /**
+   * Whether to resolve {{render path="..."}} tags for waterfall loading.
+   * Default: true
+   */
+  resolveRenderContinuations?: boolean;
+  /**
+   * Maximum concurrent requests for render continuation loading.
+   * Default: 2
+   */
+  renderContinuationMaxConcurrent?: number;
+  /**
+   * Maximum total render continuations to prevent infinite loops.
+   * Default: 100
+   */
+  renderContinuationMaxTotal?: number;
 }
 
 export function useRender(
@@ -95,6 +111,9 @@ export function useRender(
     resolveProgressive: shouldResolveProgressive = true,
     progressiveBatchSize = 3,
     progressiveMaxConcurrent = 2,
+    resolveRenderContinuations: shouldResolveRenderContinuations = true,
+    renderContinuationMaxConcurrent = 2,
+    renderContinuationMaxTotal = 100,
   } = options;
 
   const [currentPath, setCurrentPath] = useState(initialPath);
@@ -286,6 +305,49 @@ export function useRender(
             console.error("Progressive loading failed:", err);
           });
         }
+
+        // Start render continuation loading in background (waterfall loading)
+        // Note: Check against original content since parseProgressiveTags converts {{render...}} to placeholder divs
+        if (shouldResolveRenderContinuations && hasRenderContinuations(content)) {
+          // Load render continuations asynchronously
+          (async () => {
+            try {
+              const result = await loadRenderContinuations(renderedHtml, {
+                contractId,
+                client,
+                viewer,
+                maxConcurrent: renderContinuationMaxConcurrent,
+                maxContinuations: renderContinuationMaxTotal,
+                onContinuationLoaded: async (_path, rawContent) => {
+                  // Process raw markdown content:
+                  // 1. Parse any {{render...}} tags to placeholder divs
+                  let processedContent = rawContent;
+                  if (hasProgressiveTags(rawContent)) {
+                    const parsed = parseProgressiveTags(rawContent);
+                    processedContent = parsed.content;
+                  }
+                  // 2. Parse markdown to HTML
+                  const parsedHtml = await parseMarkdown(processedContent);
+                  return parsedHtml;
+                },
+                onError: (err, path) => {
+                  console.error(`Render continuation error for ${path}:`, err);
+                },
+              });
+
+              // Update HTML state with final content (all continuations loaded)
+              if (result.continuationsLoaded > 0) {
+                setHtml(result.content);
+              }
+
+              if (result.errors.length > 0) {
+                console.error("Some render continuations failed:", result.errors);
+              }
+            } catch (err) {
+              console.error("Render continuation loading failed:", err);
+            }
+          })();
+        }
       } else if (detectedFormat === "json") {
         const parseResult = parseJsonUI(content);
         if (parseResult.success && parseResult.document) {
@@ -317,7 +379,7 @@ export function useRender(
     } finally {
       setLoading(false);
     }
-  }, [client, contractId, currentPath, viewer, shouldResolveIncludes, includeCacheTtl, shouldResolveStyles, styleCacheTtl, themeContractId, scopeStyles, shouldResolveProgressive, progressiveBatchSize, progressiveMaxConcurrent]);
+  }, [client, contractId, currentPath, viewer, shouldResolveIncludes, includeCacheTtl, shouldResolveStyles, styleCacheTtl, themeContractId, scopeStyles, shouldResolveProgressive, progressiveBatchSize, progressiveMaxConcurrent, shouldResolveRenderContinuations, renderContinuationMaxConcurrent, renderContinuationMaxTotal]);
 
   useEffect(() => {
     if (enabled) {

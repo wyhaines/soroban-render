@@ -72,19 +72,36 @@ export async function submitTransaction(
   userAddress: string
 ): Promise<TransactionResult> {
   try {
+    console.log("[soroban-render] submitTransaction called:", { method: params.method, args: params.args, contractId, userAddress });
+
     const networkDetails = await getNetworkDetails();
+    console.log("[soroban-render] Network details from Freighter:", networkDetails);
     if (!networkDetails.networkPassphrase) {
       throw new Error("Could not get network details from Freighter");
     }
 
-    const sourceAccount = await client.server.getAccount(userAddress);
+    let sourceAccount;
+    try {
+      sourceAccount = await client.server.getAccount(userAddress);
+      console.log("[soroban-render] Source account:", sourceAccount.accountId());
+    } catch (accountError) {
+      // Check if this is an account not found error (unfunded account)
+      const errorMessage = accountError instanceof Error ? accountError.message : String(accountError);
+      if (errorMessage.includes("not found") || errorMessage.includes("404")) {
+        throw new Error(
+          `Account not funded on this network. Please fund your wallet address (${userAddress.slice(0, 8)}...${userAddress.slice(-4)}) using the network's friendbot or by receiving a payment.`
+        );
+      }
+      throw accountError;
+    }
     const contract = new Contract(contractId);
 
     // Convert args to ScVal array, filtering out underscore-prefixed metadata fields
     // (e.g., _redirect for navigation, _csrf for security tokens, etc.)
-    const args = Object.entries(params.args)
-      .filter(([key]) => !key.startsWith("_"))
-      .map(([key, value]) => convertArgToScVal(value, key));
+    const argsEntries = Object.entries(params.args).filter(([key]) => !key.startsWith("_"));
+    console.log("[soroban-render] Args entries (after filtering):", argsEntries);
+    const args = argsEntries.map(([key, value]) => convertArgToScVal(value, key));
+    console.log("[soroban-render] Args converted to ScVal:", args.length, "args");
     const operation = contract.call(params.method, ...args);
 
     const transaction = new TransactionBuilder(sourceAccount, {
@@ -95,9 +112,12 @@ export async function submitTransaction(
       .setTimeout(300)
       .build();
 
+    console.log("[soroban-render] Simulating transaction...");
     const simResult = await client.server.simulateTransaction(transaction);
+    console.log("[soroban-render] Simulation result:", rpc.Api.isSimulationError(simResult) ? "ERROR" : rpc.Api.isSimulationSuccess(simResult) ? "SUCCESS" : "UNKNOWN");
 
     if (rpc.Api.isSimulationError(simResult)) {
+      console.error("[soroban-render] Simulation error:", simResult.error);
       throw new Error(`Simulation failed: ${simResult.error}`);
     }
 
@@ -108,10 +128,12 @@ export async function submitTransaction(
     const preparedTx = rpc.assembleTransaction(transaction, simResult).build();
     const txXdr = preparedTx.toXDR();
 
+    console.log("[soroban-render] Requesting Freighter signature...");
     const signResult = await signTransaction(txXdr, {
       networkPassphrase: client.networkPassphrase,
       address: userAddress,
     });
+    console.log("[soroban-render] Sign result:", signResult.error ? `ERROR: ${signResult.error}` : "SUCCESS");
 
     if (signResult.error) {
       throw new Error(`Signing failed: ${signResult.error}`);

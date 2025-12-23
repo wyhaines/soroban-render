@@ -139,6 +139,10 @@ export interface InteractiveRenderViewProps {
   onTransactionStart?: () => void;
   onTransactionComplete?: (result: TransactionResult) => void;
   onError?: (error: string) => void;
+  /** CSS from contract styles() function and {{style}} tags */
+  css?: string | null;
+  /** Scope class name for CSS isolation */
+  scopeClassName?: string | null;
 }
 
 // State for pending transaction with user-settable parameters
@@ -162,6 +166,8 @@ export function InteractiveRenderView({
   onTransactionStart,
   onTransactionComplete,
   onError,
+  css,
+  scopeClassName,
 }: InteractiveRenderViewProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pendingUserParams, setPendingUserParams] = useState<PendingUserParams | null>(null);
@@ -417,11 +423,21 @@ export function InteractiveRenderView({
     );
   }
 
+  // Build class names including scope
+  const classNames = ["soroban-render-view"];
+  if (scopeClassName) {
+    classNames.push(scopeClassName);
+  }
+  if (className) {
+    classNames.push(className);
+  }
+
   return (
     <>
+      {css && <style dangerouslySetInnerHTML={{ __html: css }} />}
       <div
         ref={containerRef}
-        className={`soroban-render-view ${className}`}
+        className={classNames.join(" ")}
         style={style}
         dangerouslySetInnerHTML={{ __html: html }}
       />

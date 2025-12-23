@@ -147,7 +147,7 @@ export default function App() {
     return createClient(config.rpcUrl, config.networkPassphrase);
   }, [network, customRpcUrl]);
 
-  const { html, jsonDocument, format, loading, error, path, setPath, refetch } = useRender(
+  const { html, jsonDocument, format, loading, error, path, setPath, refetch, css, scopeClassName } = useRender(
     client,
     contractId || null,
     { path: inputPath || "/", viewer: wallet.address || undefined }
@@ -303,6 +303,8 @@ export default function App() {
               onTransactionStart={handleTransactionStart}
               onTransactionComplete={handleTransactionComplete}
               onError={handleError}
+              css={css}
+              scopeClassName={scopeClassName}
             />
           )}
         </main>
@@ -573,6 +575,8 @@ export default function App() {
               onTransactionStart={handleTransactionStart}
               onTransactionComplete={handleTransactionComplete}
               onError={handleError}
+              css={css}
+              scopeClassName={scopeClassName}
             />
           )}
 

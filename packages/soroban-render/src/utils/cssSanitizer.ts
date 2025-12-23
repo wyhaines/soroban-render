@@ -96,57 +96,105 @@ export function scopeCss(css: string, contractIdOrPrefix: string): string {
   const prefix = contractIdOrPrefix.slice(0, 8);
   const scopeClass = `.soroban-scope-${prefix}`;
 
-  // Process CSS rules - this is a simplified approach
-  // For production, consider using a proper CSS parser
-  return css.replace(
-    /([^{}@/]+)(\{[^{}]*\})/g,
-    (match: string, selectors: string, block: string) => {
-      const trimmedSelectors = selectors.trim();
+  // Helper to scope a single selector
+  const scopeSelector = (selector: string): string => {
+    const trimmed = selector.trim();
 
-      // Skip @rules (media queries, keyframes, etc.)
-      if (trimmedSelectors.startsWith("@")) {
-        return match;
-      }
-
-      // Skip if inside a media query or other @rule (indicated by indentation)
-      // This is a heuristic - proper parsing would be better
-      if (/^\s+/.test(selectors) && selectors.includes("\n")) {
-        return match;
-      }
-
-      // Process comma-separated selectors
-      const scopedSelectors = trimmedSelectors
-        .split(",")
-        .map((s: string) => {
-          const trimmed = s.trim();
-
-          // Skip :root, html, body - these affect the whole page
-          // Convert :root to scoped class
-          if (/^:root\s*$/i.test(trimmed)) {
-            return scopeClass;
-          }
-          if (/^(html|body)\s*$/i.test(trimmed)) {
-            return trimmed; // Don't scope html/body
-          }
-
-          // For :root with pseudo-selectors, replace :root with scope
-          if (/^:root/i.test(trimmed)) {
-            return trimmed.replace(/^:root/i, scopeClass);
-          }
-
-          // Skip keyframe percentages
-          if (/^\d+%$/.test(trimmed) || trimmed === "from" || trimmed === "to") {
-            return trimmed;
-          }
-
-          // Prefix other selectors
-          return `${scopeClass} ${trimmed}`;
-        })
-        .join(", ");
-
-      return `${scopedSelectors}${block}`;
+    // Skip :root, html, body - convert :root to scoped class
+    if (/^:root\s*$/i.test(trimmed)) {
+      return scopeClass;
     }
-  );
+    if (/^(html|body)\s*$/i.test(trimmed)) {
+      return trimmed; // Don't scope html/body
+    }
+
+    // For :root with pseudo-selectors, replace :root with scope
+    if (/^:root/i.test(trimmed)) {
+      return trimmed.replace(/^:root/i, scopeClass);
+    }
+
+    // Skip keyframe percentages
+    if (/^\d+%$/.test(trimmed) || trimmed === "from" || trimmed === "to") {
+      return trimmed;
+    }
+
+    // Prefix other selectors
+    return `${scopeClass} ${trimmed}`;
+  };
+
+  // Helper to scope comma-separated selectors
+  const scopeSelectors = (selectors: string): string => {
+    return selectors
+      .split(",")
+      .map(scopeSelector)
+      .join(", ");
+  };
+
+  // Process CSS with support for nested blocks (media queries, etc.)
+  let result = "";
+  let i = 0;
+
+  while (i < css.length) {
+    // Find next rule or @-rule
+    const atMatch = css.slice(i).match(/^(\s*)(@[\w-]+[^{]*)\{/);
+    const ruleMatch = css.slice(i).match(/^(\s*)([^{}@]+?)\s*\{/);
+
+    if (atMatch && (!ruleMatch || atMatch.index! <= ruleMatch.index!)) {
+      // @-rule (media query, keyframes, etc.)
+      const whitespace = atMatch[1] || "";
+      const atRule = atMatch[2] || "";
+      const startIdx = i + atMatch[0].length;
+
+      // Find matching closing brace (accounting for nesting)
+      let braceCount = 1;
+      let endIdx = startIdx;
+      while (endIdx < css.length && braceCount > 0) {
+        if (css[endIdx] === "{") braceCount++;
+        if (css[endIdx] === "}") braceCount--;
+        endIdx++;
+      }
+
+      const innerContent = css.slice(startIdx, endIdx - 1);
+
+      // Recursively scope the inner content (for media queries)
+      // but not for keyframes (selectors are percentages/from/to)
+      let scopedInner: string;
+      if (/@keyframes/i.test(atRule)) {
+        scopedInner = innerContent;
+      } else {
+        scopedInner = scopeCss(innerContent, contractIdOrPrefix);
+      }
+
+      result += `${whitespace}${atRule}{${scopedInner}}`;
+      i = endIdx;
+    } else if (ruleMatch) {
+      // Regular rule
+      const whitespace = ruleMatch[1] || "";
+      const selectors = (ruleMatch[2] || "").trim();
+      const startIdx = i + ruleMatch[0].length;
+
+      // Find closing brace
+      let braceCount = 1;
+      let endIdx = startIdx;
+      while (endIdx < css.length && braceCount > 0) {
+        if (css[endIdx] === "{") braceCount++;
+        if (css[endIdx] === "}") braceCount--;
+        endIdx++;
+      }
+
+      const block = css.slice(startIdx - 1, endIdx);
+      const scopedSelectors = scopeSelectors(selectors);
+
+      result += `${whitespace}${scopedSelectors}${block}`;
+      i = endIdx;
+    } else {
+      // No match - copy character and continue
+      result += css[i];
+      i++;
+    }
+  }
+
+  return result;
 }
 
 /**

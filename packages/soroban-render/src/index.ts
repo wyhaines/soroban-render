@@ -143,9 +143,19 @@ export {
   createChunkKey,
   type ContinuationTag,
   type ChunkTag,
+  type RenderContinuationTag,
   type ProgressiveTag,
   type ParsedProgressiveContent,
 } from "./parsers/continuation";
+
+export {
+  loadRenderContinuations,
+  hasRenderContinuations,
+  hasRenderPlaceholders,
+  extractRenderPaths,
+  type RenderContinuationOptions,
+  type RenderContinuationResult,
+} from "./utils/renderContinuation";
 
 export {
   ProgressiveLoader,

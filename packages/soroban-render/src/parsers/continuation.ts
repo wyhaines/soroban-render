@@ -44,7 +44,21 @@ export interface ChunkTag {
   length: number;
 }
 
-export type ProgressiveTag = ContinuationTag | ChunkTag;
+/**
+ * A render continuation tag triggers a new render() call to load more content.
+ * Used for waterfall loading of replies, children, etc.
+ */
+export interface RenderContinuationTag {
+  type: "render";
+  /** The render path to fetch */
+  path: string;
+  /** Position in the original content string */
+  position: number;
+  /** Length of the original tag in the content */
+  length: number;
+}
+
+export type ProgressiveTag = ContinuationTag | ChunkTag | RenderContinuationTag;
 
 export interface ParsedProgressiveContent {
   /** Content with tags replaced by placeholder divs */
@@ -65,6 +79,10 @@ const CONTINUE_PATTERN =
 // {{chunk collection="name" index=N placeholder="..."}}
 const CHUNK_PATTERN =
   /\{\{chunk\s+collection="([^"]+)"\s+index=(\d+)(?:\s+placeholder="([^"]*)")?\s*\}\}/g;
+
+// {{render path="/b/1/t/0/replies/10"}}
+// Used for waterfall loading of additional rendered content
+const RENDER_PATTERN = /\{\{render\s+path="([^"]+)"\s*\}\}/g;
 
 /**
  * Parse content for continuation and chunk tags.
@@ -110,6 +128,19 @@ export function parseProgressiveTags(content: string): ParsedProgressiveContent 
     });
   }
 
+  // Find all render continuation tags
+  RENDER_PATTERN.lastIndex = 0;
+  while ((match = RENDER_PATTERN.exec(content)) !== null) {
+    const path = match[1];
+    if (!path) continue;
+    tags.push({
+      type: "render",
+      path,
+      position: match.index,
+      length: match[0].length,
+    });
+  }
+
   // Sort by position (descending) for replacement
   tags.sort((a, b) => b.position - a.position);
 
@@ -122,8 +153,12 @@ export function parseProgressiveTags(content: string): ParsedProgressiveContent 
       placeholder = `<div class="soroban-progressive-placeholder" data-progressive-id="${id}" data-type="chunk" data-collection="${tag.collection}" data-index="${tag.index}">${tag.placeholder}</div>`;
     } else if (tag.type === "chunk") {
       placeholder = `<div class="soroban-progressive-placeholder" data-progressive-id="${id}" data-type="chunk" data-collection="${tag.collection}" data-index="${tag.index}"></div>`;
+    } else if (tag.type === "render") {
+      // Render continuation tag - will trigger a new render() call
+      const renderTag = tag as RenderContinuationTag;
+      placeholder = `<div class="soroban-progressive-placeholder soroban-render-continuation" data-progressive-id="${id}" data-type="render" data-path="${renderTag.path}"></div>`;
     } else {
-      // continuation tag
+      // chunk continuation tag
       placeholder = `<div class="soroban-progressive-placeholder" data-progressive-id="${id}" data-type="continue" data-collection="${tag.collection}" data-from="${(tag as ContinuationTag).from ?? 0}"></div>`;
     }
 
@@ -149,7 +184,8 @@ export function parseProgressiveTags(content: string): ParsedProgressiveContent 
 export function hasProgressiveTags(content: string): boolean {
   CONTINUE_PATTERN.lastIndex = 0;
   CHUNK_PATTERN.lastIndex = 0;
-  return CONTINUE_PATTERN.test(content) || CHUNK_PATTERN.test(content);
+  RENDER_PATTERN.lastIndex = 0;
+  return CONTINUE_PATTERN.test(content) || CHUNK_PATTERN.test(content) || RENDER_PATTERN.test(content);
 }
 
 /**
@@ -158,6 +194,11 @@ export function hasProgressiveTags(content: string): boolean {
 export function createTagId(tag: ProgressiveTag): string {
   if (tag.type === "chunk") {
     return `chunk-${tag.collection}-${tag.index}`;
+  }
+  if (tag.type === "render") {
+    // Use path hash for unique ID
+    const renderTag = tag as RenderContinuationTag;
+    return `render-${renderTag.path.replace(/[^a-zA-Z0-9]/g, "-")}`;
   }
   return `continue-${tag.collection}-${(tag as ContinuationTag).from ?? 0}`;
 }
