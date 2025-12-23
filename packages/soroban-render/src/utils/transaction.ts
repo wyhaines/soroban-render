@@ -96,9 +96,14 @@ export async function submitTransaction(
     }
     const contract = new Contract(contractId);
 
-    // Convert args to ScVal array, filtering out underscore-prefixed metadata fields
-    // (e.g., _redirect for navigation, _csrf for security tokens, etc.)
-    const argsEntries = Object.entries(params.args).filter(([key]) => !key.startsWith("_"));
+    // Convert args to ScVal array, filtering out:
+    // - underscore-prefixed metadata fields (e.g., _redirect, _csrf)
+    // - empty string values (from unfilled form inputs on the same page)
+    const argsEntries = Object.entries(params.args).filter(([key, value]) => {
+      if (key.startsWith("_")) return false;
+      if (typeof value === "string" && value.trim() === "") return false;
+      return true;
+    });
     console.log("[soroban-render] Args entries (after filtering):", argsEntries);
     const args = argsEntries.map(([key, value]) => convertArgToScVal(value, key));
     console.log("[soroban-render] Args converted to ScVal:", args.length, "args");
