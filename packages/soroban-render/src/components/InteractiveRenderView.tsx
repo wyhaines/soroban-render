@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
-import { parseLink, collectFormInputs, buildPathWithParams, ParsedLink } from "../utils/linkParser";
+import { parseLink, collectFormInputs, ParsedLink } from "../utils/linkParser";
 import { submitTransaction, TransactionResult } from "../utils/transaction";
 import { SorobanClient } from "../utils/client";
 
@@ -226,12 +226,9 @@ export function InteractiveRenderView({
       if (parsed.protocol === "render") {
         if (!onPathChange) return;
 
-        const container = containerRef.current;
-        if (!container) return;
-
-        const formInputs = collectFormInputs(container, link);
-        const fullPath = buildPathWithParams(parsed.path || "/", formInputs);
-        onPathChange(fullPath);
+        // For render: links, just navigate to the path directly
+        // Don't collect form inputs - that's only for form: links
+        onPathChange(parsed.path || "/");
         return;
       }
 
