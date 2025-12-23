@@ -137,6 +137,11 @@ Collect input values and submit them as transaction arguments:
 
 The viewer collects all named input values and passes them to the specified method.
 
+> [!IMPORTANT]
+> Form values are automatically converted to Soroban types based on field naming conventions.
+> See [Form Type Conversion](api-reference.md#form-type-conversion) for the complete rules.
+> Key patterns: fields ending in `_id` become `u64`, fields named `count`/`limit`/`offset` become `u32`.
+
 **Supported input types:**
 - `text` - Single line text
 - `textarea` - Multi-line text

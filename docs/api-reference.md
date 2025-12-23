@@ -583,6 +583,117 @@ function buildPathWithParams(
 ```
 
 
+## Form Type Conversion
+
+When forms are submitted via `form:` links, the viewer automatically converts string values from HTML inputs to appropriate Soroban types. Understanding these conversion rules is critical when designing your contract's function signatures.
+
+### Conversion Rules
+
+The viewer applies the following heuristics (in order of precedence):
+
+| Rule | Field Pattern | Value Pattern | Converted Type |
+|------|---------------|---------------|----------------|
+| **Address** | Any | Starts with `G`, 56 chars | `Address` |
+| **ID Fields** | Ends with `_id` (e.g., `board_id`, `thread_id`, `parent_id`) | Pure integer (`/^[0-9]+$/`) | `u64` |
+| **Counter Fields** | Matches `depth`, `count`, `index`, `limit`, or `offset` | Pure integer | `u32` |
+| **Numbers** | Any | JavaScript number type | `u32` (if 0 ≤ n ≤ 0xFFFFFFFF), else `i128` |
+| **Booleans** | Any | JavaScript boolean | `bool` |
+| **Null/Undefined** | Any | `null` or `undefined` | `void` |
+| **Default** | Any | String | `String` |
+
+### Examples
+
+```typescript
+// Form inputs collected:
+{
+  board_id: "0",      // → u64 (ends with _id, pure integer)
+  threshold: "5",     // → String (no matching heuristic)
+  count: "10",        // → u32 (matches "count", pure integer)
+  title: "Hello",     // → String (default)
+  viewer: "GABC..."   // → Address (starts with G, 56 chars)
+}
+```
+
+### Contract Function Signatures
+
+Design your contract functions to match these conversion rules:
+
+```rust
+// Good: matches viewer heuristics
+pub fn set_flag_threshold(
+    env: Env,
+    board_id: u64,       // ✓ Converted from "board_id" field
+    threshold: String,   // ✓ No special heuristic, stays String
+    caller: Address,     // ✓ Wallet address auto-injected
+) { ... }
+
+// Also good: use count/limit/offset for u32
+pub fn list_items(
+    env: Env,
+    board_id: u64,  // ✓ _id suffix → u64
+    limit: u32,     // ✓ "limit" keyword → u32
+    offset: u32,    // ✓ "offset" keyword → u32
+) { ... }
+```
+
+### Handling Numeric Inputs
+
+If you need a numeric parameter that doesn't match the heuristics (like `threshold`), you have two options:
+
+**Option 1: Accept String and parse in contract**
+```rust
+// Helper function to parse string to u32
+fn parse_string_to_u32(env: &Env, s: &String) -> u32 {
+    let bytes = string_to_bytes(env, s);
+    let mut result: u32 = 0;
+    for i in 0..bytes.len() {
+        let byte = bytes.get(i).unwrap();
+        if byte >= b'0' && byte <= b'9' {
+            result = result * 10 + (byte - b'0') as u32;
+        }
+    }
+    result
+}
+
+pub fn set_threshold(env: Env, threshold: String) {
+    let value = parse_string_to_u32(&env, &threshold);
+    // use value...
+}
+```
+
+**Option 2: Use a matching field name**
+```html
+<!-- In your form, use a name that triggers conversion -->
+<input type="hidden" name="threshold_count" value="5">
+<!-- "count" suffix triggers u32 conversion -->
+```
+
+### Reserved Field Prefixes
+
+Fields starting with underscore (`_`) are filtered out before submission:
+
+| Field | Purpose |
+|-------|---------|
+| `_redirect` | Navigation path after successful transaction |
+| `_csrf` | Security tokens (if implemented) |
+| `_*` | Any underscore-prefixed field is metadata, not contract args |
+
+### Caller Injection
+
+The viewer automatically appends the connected wallet address as the final `caller` parameter for transaction methods. Your contract function should expect this:
+
+```rust
+pub fn my_action(
+    env: Env,
+    // ... your form parameters ...
+    caller: Address,  // Auto-injected by viewer
+) {
+    caller.require_auth();
+    // ...
+}
+```
+
+
 ## React Hooks
 
 These hooks provide the primary React integration. For most applications, `useRender` and `useWallet` are all you need.
