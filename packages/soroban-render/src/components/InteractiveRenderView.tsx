@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from "react";
 import { parseLink, collectFormInputs, ParsedLink } from "../utils/linkParser";
 import { submitTransaction, TransactionResult } from "../utils/transaction";
 import { SorobanClient } from "../utils/client";
+import { resolveTargetContract } from "../utils/contractResolver";
 
 // Modal for user-settable parameters
 interface ParamModalProps {
@@ -135,6 +136,12 @@ export interface InteractiveRenderViewProps {
   client?: SorobanClient | null;
   contractId?: string | null;
   walletAddress?: string | null;
+  /**
+   * Registry contract ID for alias resolution.
+   * When provided, enables `form:@alias:method` and `tx:@alias:method` links
+   * to target contracts registered in the registry.
+   */
+  registryId?: string | null;
   onPathChange?: (path: string) => void;
   onTransactionStart?: () => void;
   onTransactionComplete?: (result: TransactionResult) => void;
@@ -162,6 +169,7 @@ export function InteractiveRenderView({
   client,
   contractId,
   walletAddress,
+  registryId,
   onPathChange,
   onTransactionStart,
   onTransactionComplete,
@@ -180,6 +188,20 @@ export function InteractiveRenderView({
       const parsed = pendingUserParams.parsed;
       setPendingUserParams(null);
 
+      // Resolve target contract (supports @alias and explicit contract IDs)
+      const targetContractId = await resolveTargetContract(
+        parsed.alias,
+        parsed.contractId,
+        contractId,
+        registryId ?? undefined,
+        client
+      );
+
+      if (!targetContractId) {
+        onError?.(`Unknown contract alias: @${parsed.alias}`);
+        return;
+      }
+
       // Merge user-provided values with original args
       const mergedArgs: Record<string, unknown> = {
         ...(parsed.args || {}),
@@ -189,7 +211,7 @@ export function InteractiveRenderView({
 
       onTransactionStart?.();
 
-      const result = await submitTransaction(client, contractId, {
+      const result = await submitTransaction(client, targetContractId, {
         method: parsed.method!,
         args: mergedArgs,
       }, walletAddress);
@@ -200,7 +222,7 @@ export function InteractiveRenderView({
         onError?.(result.error);
       }
     },
-    [pendingUserParams, client, contractId, walletAddress, onTransactionStart, onTransactionComplete, onError]
+    [pendingUserParams, client, contractId, walletAddress, registryId, onTransactionStart, onTransactionComplete, onError]
   );
 
   const handleParamCancel = useCallback(() => {
@@ -259,6 +281,20 @@ export function InteractiveRenderView({
           return;
         }
 
+        // Resolve target contract (supports @alias and explicit contract IDs)
+        const targetContractId = await resolveTargetContract(
+          parsed.alias,
+          parsed.contractId,
+          contractId,
+          registryId ?? undefined,
+          client
+        );
+
+        if (!targetContractId) {
+          onError?.(`Unknown contract alias: @${parsed.alias}`);
+          return;
+        }
+
         // Automatically add caller for contract methods that require auth
         const txArgs: Record<string, unknown> = {
           ...(parsed.args || {}),
@@ -267,7 +303,7 @@ export function InteractiveRenderView({
 
         onTransactionStart?.();
 
-        const result = await submitTransaction(client, contractId, {
+        const result = await submitTransaction(client, targetContractId, {
           method: parsed.method,
           args: txArgs,
         }, walletAddress);
@@ -314,6 +350,20 @@ export function InteractiveRenderView({
           return;
         }
 
+        // Resolve target contract (supports @alias and explicit contract IDs)
+        const targetContractId = await resolveTargetContract(
+          parsed.alias,
+          parsed.contractId,
+          contractId,
+          registryId ?? undefined,
+          client
+        );
+
+        if (!targetContractId) {
+          onError?.(`Unknown contract alias: @${parsed.alias}`);
+          return;
+        }
+
         // Automatically add caller for contract methods that require auth
         // Note: caller is added last to match typical contract function signatures
         const args: Record<string, unknown> = {
@@ -323,7 +373,7 @@ export function InteractiveRenderView({
 
         onTransactionStart?.();
 
-        const result = await submitTransaction(client, contractId, {
+        const result = await submitTransaction(client, targetContractId, {
           method: parsed.method,
           args,
         }, walletAddress);
@@ -345,7 +395,7 @@ export function InteractiveRenderView({
         return;
       }
     },
-    [client, contractId, walletAddress, onPathChange, onTransactionStart, onTransactionComplete, onError, setPendingUserParams]
+    [client, contractId, walletAddress, registryId, onPathChange, onTransactionStart, onTransactionComplete, onError, setPendingUserParams]
   );
 
   useEffect(() => {

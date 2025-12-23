@@ -170,3 +170,10 @@ export {
   type UseProgressiveRenderOptions,
   type UseProgressiveRenderResult,
 } from "./hooks/useProgressiveRender";
+
+export {
+  resolveContractAlias,
+  resolveTargetContract,
+  clearAliasCache,
+  getAliasCacheSize,
+} from "./utils/contractResolver";

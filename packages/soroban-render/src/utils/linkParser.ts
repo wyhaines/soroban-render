@@ -24,6 +24,49 @@ export interface ParsedLink {
    * prompted for user input before submitting the transaction.
    */
   userSettableParams?: string[];
+  /**
+   * For form: and tx: protocols, the contract alias to look up via registry.
+   * Syntax: `form:@admin:method` or `tx:@content:method {...}`
+   */
+  alias?: string;
+  /**
+   * For form: and tx: protocols, an explicit contract ID to target.
+   * Syntax: `form:CXYZ...:method` or `tx:CXYZ...:method {...}`
+   */
+  contractId?: string;
+}
+
+/**
+ * Parse contract target from the beginning of a protocol content string.
+ * Returns the alias, contractId (if any), and the remaining content.
+ */
+function parseContractTarget(content: string): {
+  alias?: string;
+  contractId?: string;
+  remainder: string;
+} {
+  // Check for @alias:remainder format
+  if (content.startsWith("@")) {
+    const colonIndex = content.indexOf(":", 1);
+    if (colonIndex > 1) {
+      return {
+        alias: content.slice(1, colonIndex),
+        remainder: content.slice(colonIndex + 1),
+      };
+    }
+  }
+
+  // Check for CONTRACT_ID:remainder format (C + 55 chars + :)
+  // Stellar contract IDs are 56 characters starting with 'C'
+  if (content.startsWith("C") && content.length > 56 && content[56] === ":") {
+    return {
+      contractId: content.slice(0, 56),
+      remainder: content.slice(57),
+    };
+  }
+
+  // No contract target - return content as remainder
+  return { remainder: content };
 }
 
 export function parseLink(href: string): ParsedLink {
@@ -67,12 +110,15 @@ export function parseLink(href: string): ParsedLink {
   if (href.startsWith("tx:")) {
     const content = href.slice(3).trim();
 
+    // Parse optional contract target (@alias or CONTRACT_ID)
+    const { alias, contractId, remainder } = parseContractTarget(content);
+
     // Check for .send= parameter at the end
-    const sendMatch = content.match(/\s+\.send=(\d+)$/);
+    const sendMatch = remainder.match(/\s+\.send=(\d+)$/);
     const sendAmount = sendMatch ? sendMatch[1] : undefined;
     const contentWithoutSend = sendMatch
-      ? content.slice(0, content.length - sendMatch[0].length).trim()
-      : content;
+      ? remainder.slice(0, remainder.length - sendMatch[0].length).trim()
+      : remainder;
 
     const spaceIndex = contentWithoutSend.indexOf(" ");
 
@@ -83,6 +129,8 @@ export function parseLink(href: string): ParsedLink {
         method: contentWithoutSend,
         args: {},
         sendAmount,
+        alias,
+        contractId,
       };
     }
 
@@ -104,6 +152,8 @@ export function parseLink(href: string): ParsedLink {
         args,
         sendAmount,
         userSettableParams: userSettableParams.length > 0 ? userSettableParams : undefined,
+        alias,
+        contractId,
       };
     } catch {
       return {
@@ -112,15 +162,24 @@ export function parseLink(href: string): ParsedLink {
         method,
         args: {},
         sendAmount,
+        alias,
+        contractId,
       };
     }
   }
 
   if (href.startsWith("form:")) {
+    const content = href.slice(5).trim();
+
+    // Parse optional contract target (@alias or CONTRACT_ID)
+    const { alias, contractId, remainder } = parseContractTarget(content);
+
     return {
       protocol: "form",
       href,
-      method: href.slice(5).trim(),
+      method: remainder,
+      alias,
+      contractId,
     };
   }
 
