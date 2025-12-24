@@ -556,6 +556,16 @@ interface ParsedLink {
   href?: string;
   sendAmount?: string;
   userSettableParams?: string[];
+  /**
+   * Contract alias for registry lookup.
+   * Present when link uses @alias: syntax (e.g., "form:@admin:method")
+   */
+  alias?: string;
+  /**
+   * Explicit contract ID to target.
+   * Present when link uses CONTRACT_ID: syntax (e.g., "form:CXYZ...:method")
+   */
+  contractId?: string;
 }
 
 type LinkProtocol = "tx" | "form" | "render" | "standard";
@@ -581,6 +591,69 @@ function buildPathWithParams(
   params: Record<string, string>
 ): string;
 ```
+
+
+## Contract Resolution
+
+These functions resolve contract aliases to contract IDs using a registry contract. Required when using `@alias:method` syntax in forms and transactions.
+
+### resolveContractAlias
+
+Resolves an alias to a contract ID via the registry.
+
+```typescript
+async function resolveContractAlias(
+  client: SorobanClient,
+  registryId: string,
+  alias: string
+): Promise<string | null>;
+```
+
+**Example:**
+```typescript
+const contentId = await resolveContractAlias(client, registryId, "content");
+// Returns: "CXYZ..." or null if not found
+```
+
+Results are cached per-registry to avoid repeated RPC calls.
+
+### clearAliasCache
+
+Clears the alias resolution cache.
+
+```typescript
+function clearAliasCache(registryId?: string): void;
+```
+
+**Example:**
+```typescript
+// Clear cache for specific registry
+clearAliasCache("CREG...");
+
+// Clear all caches
+clearAliasCache();
+```
+
+### resolveTargetContract
+
+Resolves the target contract for a form or transaction link.
+
+```typescript
+async function resolveTargetContract(
+  alias: string | undefined,
+  explicitContractId: string | undefined,
+  defaultContractId: string,
+  registryId: string | undefined,
+  client: SorobanClient | null
+): Promise<string | null>;
+```
+
+Resolution priority:
+1. If `alias` provided, resolve via registry
+2. If `explicitContractId` provided, use it directly
+3. Otherwise, use `defaultContractId`
+
+Returns `null` if alias resolution fails.
 
 
 ## Form Type Conversion
@@ -778,6 +851,7 @@ interface RenderViewProps {
 interface InteractiveRenderViewProps extends RenderViewProps {
   client: SorobanClient;
   contractId: string;
+  registryId?: string;  // Registry contract for alias resolution
   publicKey?: string | null;
   onRefresh?: () => void;
   onNavigate?: (path: string) => void;
@@ -785,6 +859,17 @@ interface InteractiveRenderViewProps extends RenderViewProps {
   onError?: (error: Error) => void;
 }
 ```
+
+**Props:**
+| Prop | Type | Description |
+|------|------|-------------|
+| `client` | `SorobanClient` | RPC client connection |
+| `contractId` | `string` | Main rendering contract ID |
+| `registryId` | `string` | Registry contract for resolving @alias links |
+| `publicKey` | `string` | Connected wallet address |
+| `onNavigate` | `(path: string) => void` | Callback for `render:` link clicks |
+| `onTransaction` | `(result) => void` | Callback after transaction success |
+| `onError` | `(error: Error) => void` | Callback for errors |
 
 ### JsonRenderView
 

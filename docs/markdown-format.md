@@ -117,6 +117,29 @@ Use empty strings to prompt the user for input:
 
 The viewer will display input fields for empty parameters before submitting.
 
+#### Targeting Specific Contracts
+
+Target a specific contract via registry alias:
+
+```markdown
+[Flag Post](tx:@content:flag_reply {"post_id":123})
+[Ban User](tx:@admin:ban_user {"user":"GABC..."})
+```
+
+**Syntax:** `tx:@alias:method {args}` where `alias` is registered in the application's registry contract.
+
+Or target a contract directly:
+
+```markdown
+[Flag](tx:CABC123...:flag_post {"id":1})
+```
+
+**With the SDK:**
+```rust
+.tx_link_to("Flag Post", "content", "flag_reply", r#"{"post_id":123}"#)
+.tx_link_to("Ban User", "admin", "ban_user", r#"{"user":"GABC..."}"#)
+```
+
 ### Forms: `form:`
 
 Collect input values and submit them as transaction arguments:
@@ -148,6 +171,33 @@ The viewer collects all named input values and passes them to the specified meth
 - `number` - Numeric input
 - `checkbox` - Boolean values
 - `select` - Dropdown selection
+
+#### Targeting Specific Contracts
+
+In multi-contract applications, target a specific contract via registry alias:
+
+```markdown
+[Update Settings](form:@admin:set_chunk_size)
+[Create Thread](form:@content:create_thread)
+```
+
+**Syntax:** `form:@alias:method` where `alias` is registered in the application's registry contract.
+
+Or target a contract directly by ID:
+
+```markdown
+[Update](form:CABC123...:set_value)
+```
+
+**Syntax:** `form:CONTRACT_ID:method` where `CONTRACT_ID` is the full 56-character contract address.
+
+**With the SDK:**
+```rust
+.form_link_to("Update Settings", "admin", "set_chunk_size")
+.form_link_to("Create Thread", "content", "create_thread")
+```
+
+The viewer resolves aliases by calling `get_contract_by_alias(alias)` on the registry contract.
 
 
 ## Alerts and Callouts

@@ -151,6 +151,7 @@ Full-featured view with form and transaction handling.
 <InteractiveRenderView
   client={client}
   contractId="CABC...XYZ"
+  registryId="CREG...123"  // Optional: for @alias resolution
   html={html}
   loading={loading}
   error={error}
@@ -168,6 +169,7 @@ Full-featured view with form and transaction handling.
 |------|------|-------------|
 | `client` | `SorobanClient` | RPC client instance |
 | `contractId` | `string` | Target contract ID |
+| `registryId` | `string` | Registry contract for resolving `@alias` links |
 | `html` | `string` | Parsed HTML content |
 | `loading` | `boolean` | Loading state |
 | `error` | `Error \| null` | Error state |
@@ -290,6 +292,56 @@ For external CSS, the library uses these class patterns:
 - `.soroban-form` - Form containers
 - `.soroban-button` - Buttons
 - `.soroban-chart` - Chart containers
+
+
+## Multi-Contract Applications
+
+For applications with multiple contracts, provide a `registryId` to enable alias-based targeting:
+
+```tsx
+function App() {
+  const contractId = "CTHEME...";  // Main theme/rendering contract
+  const registryId = "CREG...";    // Registry with alias mappings
+
+  const { html, loading, error, refresh } = useRender(client, contractId, {
+    viewerAddress: address,
+  });
+
+  return (
+    <InteractiveRenderView
+      client={client}
+      contractId={contractId}
+      registryId={registryId}
+      html={html}
+      loading={loading}
+      error={error}
+      publicKey={address}
+      onRefresh={refresh}
+    />
+  );
+}
+```
+
+When the contract returns links like `form:@admin:set_value`, the viewer:
+1. Parses the `@admin` alias from the link
+2. Calls `get_contract_by_alias("admin")` on the registry contract
+3. Submits the transaction to the resolved contract address
+4. Caches the resolution for subsequent requests
+
+### Registry Contract Requirements
+
+The registry contract must implement:
+
+```rust
+pub fn get_contract_by_alias(env: Env, alias: Symbol) -> Option<Address>;
+```
+
+Standard aliases by convention:
+- `registry` - The registry contract itself
+- `theme` - UI/theme contract
+- `content` - Content storage contract
+- `admin` - Administrative operations
+- `perms` - Permissions/access control
 
 
 ## Handling Navigation

@@ -203,6 +203,26 @@ For content from Soroban SDK types:
 // Output: [Submit](form:add_item)
 ```
 
+### Contract-Targeted Links
+
+For multi-contract applications, target specific contracts via registry aliases:
+
+```rust
+// Form link targeting admin contract via alias
+.form_link_to("Update Settings", "admin", "set_chunk_size")
+// Output: [Update Settings](form:@admin:set_chunk_size)
+
+// Transaction link targeting content contract
+.tx_link_to("Flag Post", "content", "flag_reply", r#"{"id":123}"#)
+// Output: [Flag Post](tx:@content:flag_reply {"id":123})
+
+// Transaction link with empty args
+.tx_link_to("Ban User", "admin", "ban_user", "")
+// Output: [Ban User](tx:@admin:ban_user)
+```
+
+These methods require a registry contract that maps aliases to contract addresses. The viewer looks up the alias at runtime and submits the transaction to the resolved contract.
+
 ### Alerts / Callouts
 
 GitHub-style alert boxes:
@@ -731,6 +751,95 @@ let escaped = escape_json_bytes(&env, b"Hello \"World\"");
 ```
 
 
+## Registry Module
+
+For multi-contract applications where multiple contracts need to interact, the SDK provides a base registry implementation.
+
+### BaseRegistry
+
+A ready-to-use registry for managing contract address aliases:
+
+```rust
+use soroban_render_sdk::registry::{BaseRegistry, RegistryKey};
+use soroban_sdk::{symbol_short, Address, Env, Map, Symbol};
+
+// Initialize with admin and initial contracts
+let mut contracts = Map::new(&env);
+contracts.set(symbol_short!("theme"), theme_address);
+contracts.set(symbol_short!("content"), content_address);
+BaseRegistry::init(&env, &admin, contracts);
+
+// Look up a contract by alias
+let theme = BaseRegistry::get_by_alias(&env, symbol_short!("theme"));
+
+// Register a new contract (admin only)
+BaseRegistry::register(&env, symbol_short!("new"), new_address);
+
+// Remove a contract alias (admin only)
+BaseRegistry::unregister(&env, symbol_short!("old"));
+
+// Get all registered contracts
+let all = BaseRegistry::get_all(&env);
+```
+
+### Integration Example
+
+Implement a registry contract using BaseRegistry:
+
+```rust
+use soroban_render_sdk::registry::BaseRegistry;
+use soroban_sdk::{contract, contractimpl, symbol_short, Address, Env, Map, Symbol};
+
+#[contract]
+pub struct MyRegistry;
+
+#[contractimpl]
+impl MyRegistry {
+    pub fn init(env: Env, admin: Address, theme: Address, content: Address) {
+        let mut contracts = Map::new(&env);
+        contracts.set(symbol_short!("theme"), theme);
+        contracts.set(symbol_short!("content"), content);
+        BaseRegistry::init(&env, &admin, contracts);
+    }
+
+    pub fn get_contract_by_alias(env: Env, alias: Symbol) -> Option<Address> {
+        // Handle "registry" specially to return self
+        if alias == symbol_short!("registry") {
+            return Some(env.current_contract_address());
+        }
+        BaseRegistry::get_by_alias(&env, alias)
+    }
+
+    pub fn register_contract(env: Env, alias: Symbol, address: Address) {
+        BaseRegistry::register(&env, alias, address);
+    }
+}
+```
+
+The viewer calls `get_contract_by_alias` to resolve aliases like `@theme` or `@content` to actual contract addresses.
+
+### RegistryKey
+
+Storage keys used internally by BaseRegistry:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `Contracts` | `Map<Symbol, Address>` | Alias to address mappings |
+| `Admin` | `Address` | Admin address for modifications |
+
+### ContractRegistry Trait
+
+Optional trait for type-safe registry implementations:
+
+```rust
+pub trait ContractRegistry {
+    fn register_contract(env: &Env, alias: Symbol, address: Address);
+    fn get_contract_by_alias(env: &Env, alias: Symbol) -> Option<Address>;
+    fn get_all_contracts(env: &Env) -> Map<Symbol, Address>;
+}
+```
+
+
 ## Prelude
 
 The prelude module re-exports common types for convenience:
@@ -745,6 +854,7 @@ This imports:
 - `MarkdownBuilder` (with `markdown` feature)
 - `JsonDocument`, `FormBuilder`, `TaskBuilder` (with `json` feature)
 - `Router`, `RouterResult`, `Request` (with `router` feature)
+- `BaseRegistry`, `RegistryKey`, `ContractRegistry` (with default features)
 - All path utilities (with `router` feature)
 - All byte utilities
 
