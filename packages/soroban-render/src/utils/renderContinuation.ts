@@ -10,7 +10,9 @@ import type { SorobanClient } from "./client";
 import { callRender } from "./client";
 
 // Pattern to find render continuation placeholder divs
-const PLACEHOLDER_PATTERN = /<div[^>]*data-type="render"[^>]*data-path="([^"]+)"[^>]*><\/div>/g;
+// Note: We use a more flexible pattern that doesn't require specific attribute order
+// since DOMPurify may reorder attributes
+const PLACEHOLDER_PATTERN = /<div[^>]*\bdata-type="render"[^>]*\bdata-path="([^"]+)"[^>]*><\/div>|<div[^>]*\bdata-path="([^"]+)"[^>]*\bdata-type="render"[^>]*><\/div>/g;
 
 export interface RenderContinuationOptions {
   /** Contract ID to render from */
@@ -51,8 +53,10 @@ function extractPlaceholderPaths(html: string): string[] {
   const regex = new RegExp(PLACEHOLDER_PATTERN.source, "g");
   let match;
   while ((match = regex.exec(html)) !== null) {
-    if (match[1]) {
-      paths.push(match[1]);
+    // Pattern has two alternatives, so path could be in match[1] or match[2]
+    const path = match[1] || match[2];
+    if (path) {
+      paths.push(path);
     }
   }
   return paths;
@@ -132,12 +136,20 @@ export async function loadRenderContinuations(
       for (const result of results) {
         if (result.content) {
           // Find and replace the placeholder div
+          // Use flexible pattern that matches regardless of attribute order
           const escapedPath = result.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
           const placeholderRegex = new RegExp(
-            `<div[^>]*data-type="render"[^>]*data-path="${escapedPath}"[^>]*></div>`,
+            `<div[^>]*\\bdata-type="render"[^>]*\\bdata-path="${escapedPath}"[^>]*></div>|<div[^>]*\\bdata-path="${escapedPath}"[^>]*\\bdata-type="render"[^>]*></div>`,
             "g"
           );
+          const beforeLength = content.length;
           content = content.replace(placeholderRegex, result.content);
+          const afterLength = content.length;
+          console.log(`[soroban-render] Continuation ${result.path}: replaced=${beforeLength !== afterLength}, contentLength=${result.content.length}`);
+          if (beforeLength === afterLength) {
+            console.log(`[soroban-render] WARNING: Placeholder not found for ${result.path}`);
+            console.log(`[soroban-render] Looking for pattern: data-path="${result.path}"`);
+          }
           continuationsLoaded++;
         }
       }
@@ -164,7 +176,9 @@ export function hasRenderContinuations(content: string): boolean {
  * Check if content has any render continuation placeholder divs.
  */
 export function hasRenderPlaceholders(content: string): boolean {
-  return /<div[^>]*data-type="render"[^>]*data-path="[^"]+"[^>]*><\/div>/.test(content);
+  // Check for placeholder divs with data-type="render" and data-path, in either order
+  return /<div[^>]*\bdata-type="render"[^>]*\bdata-path="[^"]+"[^>]*><\/div>/.test(content) ||
+         /<div[^>]*\bdata-path="[^"]+"[^>]*\bdata-type="render"[^>]*><\/div>/.test(content);
 }
 
 /**

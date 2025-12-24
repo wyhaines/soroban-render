@@ -31,10 +31,7 @@
     "@stellar/freighter-api": "^3.0.0",
     "@stellar/stellar-sdk": "^13.0.0",
     "dompurify": "^3.2.0",
-    "remark-gfm": "^4.0.0",
-    "remark-html": "^16.0.1",
-    "remark-parse": "^11.0.0",
-    "unified": "^11.0.5"
+    "marked": "^17.0.1"
   },
   "peerDependencies": {
     "react": "^18.0.0",

@@ -1,8 +1,11 @@
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkHtml from "remark-html";
+import { marked } from "marked";
 import DOMPurify from "dompurify";
+
+// Configure marked once at module load
+marked.setOptions({
+  gfm: true, // GitHub Flavored Markdown (tables, strikethrough, task lists)
+  breaks: false, // Don't convert \n to <br>
+});
 
 function escapeHtmlAttr(str: string): string {
   return str
@@ -21,7 +24,7 @@ function isCustomProtocol(url: string): boolean {
 
 function convertRemainingLinks(html: string): string {
   // Convert any remaining markdown link syntax [text](url) to HTML links
-  // This handles links that remark doesn't convert (e.g., inside task list items)
+  // This handles links that marked doesn't convert (e.g., inside certain contexts)
   return html.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
     (_, text, url) => {
@@ -36,7 +39,7 @@ function convertRemainingLinks(html: string): string {
 
 function convertCustomProtocolHrefs(html: string): string {
   // Convert existing <a href="render:..."> etc. to use data-action instead
-  // This handles links that remark already converted to HTML
+  // This handles links that marked already converted to HTML
   return html.replace(
     /<a\s+href="((?:render:|tx:|form:)[^"]*)"([^>]*)>/g,
     (_, url, rest) => {
@@ -82,18 +85,16 @@ function extractColumnBlocks(markdown: string): { markdown: string; blocks: Colu
   return { markdown: processed, blocks };
 }
 
-async function processColumnBlocks(
+function processColumnBlocks(
   html: string,
   blocks: ColumnBlock[],
-  processMarkdown: (md: string) => Promise<string>
-): Promise<string> {
+  processMarkdown: (md: string) => string
+): string {
   let result = html;
 
   for (const block of blocks) {
     // Process each column's content through markdown
-    const processedColumns = await Promise.all(
-      block.columns.map(col => processMarkdown(col))
-    );
+    const processedColumns = block.columns.map(col => processMarkdown(col));
 
     // Build the column HTML
     const columnCount = processedColumns.length;
@@ -111,7 +112,7 @@ async function processColumnBlocks(
 
 function convertAlertSyntax(html: string): string {
   // Convert blockquotes with [!TYPE] to styled alert divs
-  // Input pattern from remark: <blockquote>\n<p>[!TYPE]</p>\n<p>content</p>\n</blockquote>
+  // Input pattern from marked: <blockquote>\n<p>[!TYPE]</p>\n<p>content</p>\n</blockquote>
   // Also handles: <blockquote>\n<p>[!TYPE]\ncontent on same line</p>\n</blockquote>
   const alertPattern = new RegExp(
     `<blockquote>\\s*<p>\\[!(${ALERT_TYPES.join("|")})\\](?:<br>\\s*)?([\\s\\S]*?)</p>([\\s\\S]*?)</blockquote>`,
@@ -128,14 +129,8 @@ function convertAlertSyntax(html: string): string {
 }
 
 // Internal markdown processor without column handling (to avoid recursion)
-async function processMarkdownCore(markdown: string): Promise<string> {
-  const result = await unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .use(remarkHtml, { sanitize: false })
-    .process(markdown);
-
-  let html = String(result);
+function processMarkdownCore(markdown: string): string {
+  let html = marked.parse(markdown) as string;
 
   // Convert any remaining markdown links that weren't processed
   html = convertRemainingLinks(html);
@@ -149,16 +144,17 @@ async function processMarkdownCore(markdown: string): Promise<string> {
   return html;
 }
 
+// Keep async signature for backward compatibility
 export async function parseMarkdown(markdown: string): Promise<string> {
   // Extract column blocks before processing
   const { markdown: processedMarkdown, blocks: columnBlocks } = extractColumnBlocks(markdown);
 
   // Process the main markdown content
-  let html = await processMarkdownCore(processedMarkdown);
+  let html = processMarkdownCore(processedMarkdown);
 
   // Process column blocks (each column's content gets processed through markdown)
   if (columnBlocks.length > 0) {
-    html = await processColumnBlocks(html, columnBlocks, processMarkdownCore);
+    html = processColumnBlocks(html, columnBlocks, processMarkdownCore);
   }
 
   // Add hook to preserve 'name' attribute on form elements
