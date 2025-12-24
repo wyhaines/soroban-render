@@ -39,7 +39,17 @@ function convertCustomProtocolHrefs(html: string): string {
   // This handles links that remark already converted to HTML
   return html.replace(
     /<a\s+href="((?:render:|tx:|form:)[^"]*)"([^>]*)>/g,
-    (_, url, rest) => `<a href="#" data-action="${escapeHtmlAttr(url)}" class="soroban-action"${rest}>`
+    (_, url, rest) => {
+      // Check if there's an existing class attribute in rest
+      const classMatch = rest.match(/\s+class="([^"]*)"/);
+      if (classMatch) {
+        // Merge soroban-action with existing classes
+        const existingClasses = classMatch[1];
+        const restWithoutClass = rest.replace(/\s+class="[^"]*"/, "");
+        return `<a href="#" data-action="${escapeHtmlAttr(url)}" class="soroban-action ${existingClasses}"${restWithoutClass}>`;
+      }
+      return `<a href="#" data-action="${escapeHtmlAttr(url)}" class="soroban-action"${rest}>`;
+    }
   );
 }
 
