@@ -1,5 +1,9 @@
 # Soroban Render
 
+[![CI](https://github.com/wyhaines/soroban-render/actions/workflows/ci.yml/badge.svg)](https://github.com/wyhaines/soroban-render/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@soroban-render/core.svg)](https://www.npmjs.com/package/@soroban-render/core)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 **Self-contained, renderable dApps on Stellar's Soroban platform.**
 
 [Live Demos](https://wyhaines.github.io/soroban-render/) | [Documentation](./docs/README.md)

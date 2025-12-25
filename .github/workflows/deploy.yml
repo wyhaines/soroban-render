@@ -1,8 +1,13 @@
 name: Deploy to GitHub Pages
 
 on:
-  push:
+  # Only deploy after CI passes on main
+  workflow_run:
+    workflows: ["CI"]
     branches: [main]
+    types:
+      - completed
+  # Allow manual deployment
   workflow_dispatch:
 
 permissions:
@@ -22,6 +27,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Only run if CI succeeded (skip if CI failed or was cancelled)
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
