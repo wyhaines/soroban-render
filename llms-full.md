@@ -507,6 +507,122 @@ Contracts declare capabilities via metadata:
 
 ---
 
+## RUST SDK (soroban-render-sdk)
+
+The SDK provides contract-side builders for generating renderable output.
+
+### Feature Flags
+
+| Feature | Default | Exports |
+|---------|---------|---------|
+| `markdown` | yes | `MarkdownBuilder` |
+| `json` | yes | `JsonDocument`, `FormBuilder`, `TaskBuilder` |
+| `router` | yes | `Router`, `RouterResult`, `Request` |
+| `styles` | yes | `StyleBuilder` |
+| `registry` | no | `BaseRegistry`, `RegistryKey`, `ContractRegistry` |
+
+### MarkdownBuilder Key Methods
+
+| Method | Output |
+|--------|--------|
+| `.h1("text")` | `# text\n\n` |
+| `.paragraph("text")` | `text\n\n` |
+| `.render_link("label", "/path")` | `[label](render:/path)` |
+| `.form_link("label", "method")` | `[label](form:method)` |
+| `.form_link_to("label", "alias", "method")` | `[label](form:@alias:method)` |
+| `.tx_link("label", "method", "args")` | `[label](tx:method args)` |
+| `.tx_link_to("label", "alias", "method", "args")` | `[label](tx:@alias:method args)` |
+| `.continuation("coll", from, total)` | `{{continue collection="coll" from=N total=M}}` |
+| `.render_continue("/path")` | `{{render path="/path"}}` |
+| `.div_start("classes")` | `<div class="classes">` |
+| `.div_end()` | `</div>` |
+| `.build()` | Final `Bytes` |
+
+### Registry (Multi-Contract Apps)
+
+```rust
+use soroban_render_sdk::registry::BaseRegistry;
+use soroban_sdk::{symbol_short, Map};
+
+// Initialize
+let mut contracts = Map::new(&env);
+contracts.set(symbol_short!("content"), content_addr);
+contracts.set(symbol_short!("perms"), perms_addr);
+BaseRegistry::init(&env, &admin, contracts);
+
+// Look up
+let addr = BaseRegistry::get_by_alias(&env, symbol_short!("content"));
+```
+
+### Router Pattern
+
+```rust
+Router::new(&env, path)
+    .handle(b"/", |_| render_home(&env))
+    .or_handle(b"/task/{id}", |req| {
+        let id = req.get_var_u32(b"id").unwrap_or(0);
+        render_task(&env, id)
+    })
+    .or_default(|_| render_home(&env))
+```
+
+### StyleBuilder
+
+```rust
+StyleBuilder::new(&env)
+    .root_var("primary", "#0066cc")
+    .rule("h1", "color: var(--primary);")
+    .dark_mode_start()
+    .rule(":root", "--bg: #1a1a1a;")
+    .media_end()
+    .build()
+```
+
+---
+
+## MULTI-CONTRACT EXAMPLE (soroban-boards)
+
+Reference implementation showing registry-based multi-contract architecture.
+
+### Contract Structure
+
+| Contract | Alias | Responsibility |
+|----------|-------|----------------|
+| Registry | `registry` | Board factory, contract discovery |
+| Board | `board_{id}` | Per-board thread management |
+| Content | `content` | Thread/reply content storage |
+| Permissions | `perms` | Roles, bans, invites |
+| Theme | `theme` | UI rendering |
+| Admin | `admin` | Admin panel |
+
+### Form Targeting Pattern
+
+```rust
+// In theme contract - forms target other contracts
+.form_link_to("Post Reply", "content", "create_reply")
+// Output: [Post Reply](form:@content:create_reply)
+
+.tx_link_to("Flag", "perms", "flag_content", r#"{"id":1}"#)
+// Output: [Flag](tx:@perms:flag_content {"id":1})
+```
+
+### Waterfall Loading Pattern
+
+```rust
+// Render first N replies, then load more
+fn render_thread(&env: &Env, board_id: u64, thread_id: u64) -> Bytes {
+    let mut md = MarkdownBuilder::new(env);
+    // ... render first batch ...
+
+    if has_more {
+        md = md.render_continue(&format!("/b/{}/t/{}/replies/{}", board_id, thread_id, offset));
+    }
+    md.build()
+}
+```
+
+---
+
 ## ERROR HANDLING
 
 | Error | Cause | Resolution |

@@ -144,6 +144,69 @@ The generic viewer works for most use cases, but you might build a custom one if
 
 Even then, you're building a viewer that works with any renderable contract, not a single-purpose frontend for one contract.
 
+## Registry Configuration for Multi-Contract Apps
+
+If your application uses multiple contracts (like Soroban Boards with its registry, content, permissions, theme, and board contracts), you need to configure the viewer with a registry.
+
+### What is a Registry?
+
+A registry contract maps aliases (like `@content`, `@theme`, `@admin`) to actual contract addresses. When your contract uses `form:@content:create_reply`, the viewer:
+
+1. Calls the registry's `get_contract_by_alias("content")` function
+2. Gets back the content contract address
+3. Submits the transaction to that address
+
+### Configuring the Viewer with a Registry
+
+#### Hosted Viewer
+
+Enter the registry contract ID in the "Registry" field (instead of just the theme contract). The viewer will:
+- Call `get_contract_by_alias("theme")` to find the theme contract for rendering
+- Resolve all `@alias` references in forms and transactions
+
+#### React Integration
+
+```tsx
+import { createClient, useRender, InteractiveRenderView } from "@soroban-render/core";
+
+function App({ registryId }: { registryId: string }) {
+  const client = createClient(rpcUrl, networkPassphrase);
+
+  // Configure the registry
+  const { html, loading, error } = useRender(client, registryId, {
+    registry: registryId,  // Enable registry mode
+  });
+
+  return (
+    <InteractiveRenderView
+      client={client}
+      contractId={registryId}
+      registry={registryId}  // Pass registry for transaction resolution
+      html={html}
+      loading={loading}
+      error={error}
+    />
+  );
+}
+```
+
+### Registry Contract Requirements
+
+Your registry must implement a `get_contract_by_alias` function:
+
+```rust
+pub fn get_contract_by_alias(env: Env, alias: Symbol) -> Option<Address> {
+    // Handle self-reference
+    if alias == symbol_short!("registry") {
+        return Some(env.current_contract_address());
+    }
+    // Look up other aliases
+    BaseRegistry::get_by_alias(&env, alias)
+}
+```
+
+See the [Rust SDK - Registry Module](./rust-sdk.md#registry-module) for implementation details.
+
 ## Workflow Summary
 
 ```
@@ -155,6 +218,9 @@ Soroban Render (hosted viewer):
 
 Soroban Render (your own URL):
   Deploy Contract → Fork template → Configure → Deploy → Users visit your URL
+
+Multi-Contract App:
+  Deploy Contracts → Configure Registry → Users view via registry
 ```
 
 The viewer is infrastructure that already exists. You either point users to an existing viewer, or deploy your own copy in minutes using the template.

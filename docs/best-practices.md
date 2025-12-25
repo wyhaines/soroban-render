@@ -447,6 +447,120 @@ pub fn get_chunk(env: Env, collection: Symbol, index: u32) -> Option<Bytes> {
 | Structured data | 2-4 KB | Keep logical units together |
 
 
+## Multi-Contract Architecture
+
+For larger applications, split functionality across multiple contracts to stay within Soroban's 64KB limit and maintain separation of concerns.
+
+### When to Use Multiple Contracts
+
+- Contract exceeds ~50KB compiled
+- Different logical domains (users, content, admin)
+- Different upgrade cadences
+- Need for specialized storage patterns
+
+### Registry Pattern
+
+Use a registry contract to manage contract discovery:
+
+```rust
+// In your registry contract
+use soroban_render_sdk::registry::BaseRegistry;
+
+#[contractimpl]
+impl MyRegistry {
+    pub fn init(env: Env, admin: Address, theme: Address, content: Address) {
+        let mut contracts = Map::new(&env);
+        contracts.set(symbol_short!("theme"), theme);
+        contracts.set(symbol_short!("content"), content);
+        BaseRegistry::init(&env, &admin, contracts);
+    }
+
+    pub fn get_contract_by_alias(env: Env, alias: Symbol) -> Option<Address> {
+        if alias == symbol_short!("registry") {
+            return Some(env.current_contract_address());
+        }
+        BaseRegistry::get_by_alias(&env, alias)
+    }
+}
+```
+
+### Targeting Contracts in Forms
+
+Use `form_link_to` and `tx_link_to` to send transactions to specific contracts:
+
+```rust
+// Instead of calling this contract
+.form_link("Submit", "create_reply")
+
+// Target a specific contract via registry alias
+.form_link_to("Submit", "content", "create_reply")
+// Output: [Submit](form:@content:create_reply)
+```
+
+The viewer resolves `@content` by calling `registry.get_contract_by_alias("content")`.
+
+### Contract Responsibilities
+
+Design contracts around clear responsibilities:
+
+| Contract | Example Responsibilities |
+|----------|-------------------------|
+| **Registry** | Contract discovery, board creation, global config |
+| **Content** | Store/retrieve threads, replies, media |
+| **Permissions** | Role management, bans, invites |
+| **Theme** | UI rendering, CSS, layout |
+| **Admin** | Settings UI, moderation tools |
+
+### Cross-Contract Data Access
+
+For rendering, contracts can read data from other contracts:
+
+```rust
+fn render_board(env: &Env, board_id: u64) -> Bytes {
+    // Get content contract address from registry
+    let content_addr = get_content_contract(env);
+
+    // Create client and fetch data
+    let content = ContentClient::new(env, &content_addr);
+    let threads = content.list_threads(&board_id, &0, &10);
+
+    // Render with the data
+    let mut md = MarkdownBuilder::new(env);
+    for thread in threads.iter() {
+        md = md.render_link(&thread.title, &format!("/b/{}/t/{}", board_id, thread.id));
+    }
+    md.build()
+}
+```
+
+### Upgrade Strategy
+
+With multiple contracts, plan your upgrade approach:
+
+```rust
+// In registry: upgrade any registered contract
+pub fn upgrade_contract(env: Env, contract_id: Address, new_wasm_hash: BytesN<32>) {
+    let admin: Address = env.storage().instance().get(&RegistryKey::Admin).unwrap();
+    admin.require_auth();
+
+    // Call the target contract's upgrade function
+    let client = UpgradeableClient::new(&env, &contract_id);
+    client.upgrade(&new_wasm_hash);
+}
+```
+
+### Example: Soroban Boards Architecture
+
+See [Soroban Boards](https://github.com/wyhaines/soroban-boards) for a complete multi-contract application:
+
+- **Registry**: Board factory, contract aliases
+- **Board**: Per-board thread management
+- **Content**: Thread/reply content storage
+- **Permissions**: Roles, bans, invites
+- **Theme**: UI rendering
+- **Admin**: Admin panel
+
+
 ## Related Documentation
 
 - [Rust SDK Reference](./rust-sdk.md) - API details
