@@ -101,9 +101,10 @@ function updateHashPath(path: string) {
   }
 }
 
-function getConfigFromEnv(): { contract?: string; network?: Network } {
+function getConfigFromEnv(): { contract?: string; adminContract?: string; network?: Network } {
   return {
     contract: import.meta.env.VITE_CONTRACT_ID || undefined,
+    adminContract: import.meta.env.VITE_ADMIN_CONTRACT_ID || undefined,
     network: (import.meta.env.VITE_NETWORK as Network) || undefined,
   };
 }
@@ -113,6 +114,7 @@ export default function App() {
   const envConfig = getConfigFromEnv();
 
   const preConfiguredContract = urlConfig.contract || envConfig.contract;
+  const preConfiguredAdminContract = envConfig.adminContract;
   const preConfiguredNetwork = urlConfig.network || envConfig.network || "local";
   const preConfiguredPath = urlConfig.path || "/";
 
@@ -120,6 +122,7 @@ export default function App() {
 
   const [contractId, setContractId] = useState(preConfiguredContract || "");
   const [inputContractId, setInputContractId] = useState(preConfiguredContract || "");
+  const [adminContractId] = useState(preConfiguredAdminContract || "");
   const [network, setNetwork] = useState<Network>(preConfiguredNetwork);
   const [customRpcUrl, setCustomRpcUrl] = useState("");
   const [inputPath, setInputPath] = useState(preConfiguredPath);
@@ -128,6 +131,12 @@ export default function App() {
   const [dismissedWalletError, setDismissedWalletError] = useState<string | null>(null);
 
   const wallet = useWallet();
+
+  // Determine if current path is an admin route and get the effective contract/path
+  const isAdminRoute = inputPath.startsWith("/admin/") || inputPath === "/admin";
+  const effectiveContractId = isAdminRoute && adminContractId ? adminContractId : contractId;
+  // Strip /admin prefix for admin routes (admin contract expects /b/0/settings, not /admin/b/0/settings)
+  const effectivePath = isAdminRoute ? inputPath.replace(/^\/admin/, "") || "/" : inputPath;
 
   // Reset dismissed wallet error when a new error occurs
   useEffect(() => {
@@ -149,8 +158,8 @@ export default function App() {
 
   const { html, jsonDocument, format, loading, error, path, setPath, refetch, css, scopeClassName } = useRender(
     client,
-    contractId || null,
-    { path: inputPath || "/", viewer: wallet.address || undefined }
+    effectiveContractId || null,
+    { path: effectivePath || "/", viewer: wallet.address || undefined }
   );
 
   useEffect(() => {
@@ -283,7 +292,7 @@ export default function App() {
               document={jsonDocument}
               className="prose prose-slate max-w-none"
               client={client}
-              contractId={contractId || null}
+              contractId={effectiveContractId || null}
               walletAddress={wallet.address}
               onPathChange={handlePathChange}
               onTransactionStart={handleTransactionStart}
@@ -297,7 +306,7 @@ export default function App() {
               error={error}
               className="prose prose-slate max-w-none"
               client={client}
-              contractId={contractId || null}
+              contractId={effectiveContractId || null}
               walletAddress={wallet.address}
               onPathChange={handlePathChange}
               onTransactionStart={handleTransactionStart}
@@ -555,7 +564,7 @@ export default function App() {
               document={jsonDocument}
               className="prose prose-slate max-w-none"
               client={client}
-              contractId={contractId || null}
+              contractId={effectiveContractId || null}
               walletAddress={wallet.address}
               onPathChange={handlePathChange}
               onTransactionStart={handleTransactionStart}
@@ -569,7 +578,7 @@ export default function App() {
               error={error}
               className="prose prose-slate max-w-none"
               client={client}
-              contractId={contractId || null}
+              contractId={effectiveContractId || null}
               walletAddress={wallet.address}
               onPathChange={handlePathChange}
               onTransactionStart={handleTransactionStart}
