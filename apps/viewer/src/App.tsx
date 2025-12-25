@@ -101,10 +101,11 @@ function updateHashPath(path: string) {
   }
 }
 
-function getConfigFromEnv(): { contract?: string; adminContract?: string; network?: Network } {
+function getConfigFromEnv(): { contract?: string; adminContract?: string; registryContract?: string; network?: Network } {
   return {
     contract: import.meta.env.VITE_CONTRACT_ID || undefined,
     adminContract: import.meta.env.VITE_ADMIN_CONTRACT_ID || undefined,
+    registryContract: import.meta.env.VITE_REGISTRY_ID || undefined,
     network: (import.meta.env.VITE_NETWORK as Network) || undefined,
   };
 }
@@ -115,6 +116,7 @@ export default function App() {
 
   const preConfiguredContract = urlConfig.contract || envConfig.contract;
   const preConfiguredAdminContract = envConfig.adminContract;
+  const preConfiguredRegistryContract = envConfig.registryContract;
   const preConfiguredNetwork = urlConfig.network || envConfig.network || "local";
   const preConfiguredPath = urlConfig.path || "/";
 
@@ -123,6 +125,7 @@ export default function App() {
   const [contractId, setContractId] = useState(preConfiguredContract || "");
   const [inputContractId, setInputContractId] = useState(preConfiguredContract || "");
   const [adminContractId] = useState(preConfiguredAdminContract || "");
+  const [registryId] = useState(preConfiguredRegistryContract || "");
   const [network, setNetwork] = useState<Network>(preConfiguredNetwork);
   const [customRpcUrl, setCustomRpcUrl] = useState("");
   const [inputPath, setInputPath] = useState(preConfiguredPath);
@@ -307,6 +310,7 @@ export default function App() {
               className="prose prose-slate max-w-none"
               client={client}
               contractId={effectiveContractId || null}
+              registryId={registryId || null}
               walletAddress={wallet.address}
               onPathChange={handlePathChange}
               onTransactionStart={handleTransactionStart}
@@ -579,6 +583,7 @@ export default function App() {
               className="prose prose-slate max-w-none"
               client={client}
               contractId={effectiveContractId || null}
+              registryId={registryId || null}
               walletAddress={wallet.address}
               onPathChange={handlePathChange}
               onTransactionStart={handleTransactionStart}
