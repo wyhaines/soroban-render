@@ -94,7 +94,7 @@ describe("InteractiveRenderView", () => {
       expect(onPathChange).toHaveBeenCalledWith("/tasks");
     });
 
-    it("should collect form inputs for render: links", async () => {
+    it("should navigate without collecting form inputs for render: links", async () => {
       const onPathChange = vi.fn();
 
       render(
@@ -109,9 +109,9 @@ describe("InteractiveRenderView", () => {
 
       fireEvent.click(screen.getByText("Search"));
 
-      expect(onPathChange).toHaveBeenCalledWith(
-        expect.stringContaining("search=test%20query")
-      );
+      // render: links navigate directly to the path without collecting form inputs
+      // Form input collection is only for form: protocol links
+      expect(onPathChange).toHaveBeenCalledWith("/search");
     });
 
     it("should not prevent standard links", async () => {
