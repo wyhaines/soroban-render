@@ -73,6 +73,20 @@ export function parseLink(href: string): ParsedLink {
   if (href.startsWith("render:")) {
     const content = href.slice(7); // Remove "render:"
 
+    // Check for @alias: or CONTRACT_ID: prefix first
+    const { alias, contractId, remainder } = parseContractTarget(content);
+
+    // If we have an alias or contractId, the remainder is the path
+    if (alias || contractId) {
+      return {
+        protocol: "render",
+        href,
+        path: remainder || "/",
+        alias,
+        contractId,
+      };
+    }
+
     // If starts with / or ?, it's a path for the default render() function
     if (content.startsWith("/") || content.startsWith("?") || content === "") {
       return {

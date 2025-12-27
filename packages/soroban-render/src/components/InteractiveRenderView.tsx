@@ -138,11 +138,18 @@ export interface InteractiveRenderViewProps {
   walletAddress?: string | null;
   /**
    * Registry contract ID for alias resolution.
-   * When provided, enables `form:@alias:method` and `tx:@alias:method` links
-   * to target contracts registered in the registry.
+   * When provided, enables `form:@alias:method`, `tx:@alias:method`, and
+   * `render:@alias:/path` links to target contracts registered in the registry.
    */
   registryId?: string | null;
   onPathChange?: (path: string) => void;
+  /**
+   * Callback for cross-contract navigation via render:@alias:/path or render:CONTRACT_ID:/path.
+   * When provided, enables navigating to a different contract's render output.
+   * @param contractId - The resolved contract ID to navigate to
+   * @param path - The path to render on that contract
+   */
+  onContractNavigate?: (contractId: string, path: string) => void;
   onTransactionStart?: () => void;
   onTransactionComplete?: (result: TransactionResult) => void;
   onError?: (error: string) => void;
@@ -171,6 +178,7 @@ export function InteractiveRenderView({
   walletAddress,
   registryId,
   onPathChange,
+  onContractNavigate,
   onTransactionStart,
   onTransactionComplete,
   onError,
@@ -252,10 +260,36 @@ export function InteractiveRenderView({
       event.stopPropagation();
 
       if (parsed.protocol === "render") {
-        if (!onPathChange) return;
+        // Check if this is a cross-contract navigation (has alias or explicit contractId)
+        if (parsed.alias || parsed.contractId) {
+          if (!onContractNavigate) {
+            // Fall back to onPathChange if no cross-contract handler
+            if (onPathChange) {
+              onPathChange(parsed.path || "/");
+            }
+            return;
+          }
 
-        // For render: links, just navigate to the path directly
-        // Don't collect form inputs - that's only for form: links
+          // Resolve the target contract
+          const targetContractId = await resolveTargetContract(
+            parsed.alias,
+            parsed.contractId,
+            contractId || "",
+            registryId ?? undefined,
+            client ?? null
+          );
+
+          if (!targetContractId) {
+            onError?.(`Unknown contract alias: @${parsed.alias}`);
+            return;
+          }
+
+          onContractNavigate(targetContractId, parsed.path || "/");
+          return;
+        }
+
+        // Standard same-contract navigation
+        if (!onPathChange) return;
         onPathChange(parsed.path || "/");
         return;
       }
@@ -395,7 +429,7 @@ export function InteractiveRenderView({
         return;
       }
     },
-    [client, contractId, walletAddress, registryId, onPathChange, onTransactionStart, onTransactionComplete, onError, setPendingUserParams]
+    [client, contractId, walletAddress, registryId, onPathChange, onContractNavigate, onTransactionStart, onTransactionComplete, onError, setPendingUserParams]
   );
 
   useEffect(() => {

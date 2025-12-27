@@ -135,8 +135,15 @@ function ComponentRenderer({
 }
 
 function HeadingRenderer({ component }: { component: HeadingComponent }): React.ReactElement {
-  const Tag = `h${component.level}` as keyof JSX.IntrinsicElements;
-  return <Tag>{component.text}</Tag>;
+  const level = Math.min(Math.max(component.level, 1), 6);
+  switch (level) {
+    case 1: return <h1>{component.text}</h1>;
+    case 2: return <h2>{component.text}</h2>;
+    case 3: return <h3>{component.text}</h3>;
+    case 4: return <h4>{component.text}</h4>;
+    case 5: return <h5>{component.text}</h5>;
+    default: return <h6>{component.text}</h6>;
+  }
 }
 
 function TextRenderer({ component }: { component: TextComponent }): React.ReactElement {

@@ -126,6 +126,8 @@ export default function App() {
   const [inputContractId, setInputContractId] = useState(preConfiguredContract || "");
   const [adminContractId] = useState(preConfiguredAdminContract || "");
   const [registryId] = useState(preConfiguredRegistryContract || "");
+  // Cross-contract navigation: when navigating to a different contract via render:@alias:/path
+  const [navigatedContractId, setNavigatedContractId] = useState<string | null>(null);
   const [network, setNetwork] = useState<Network>(preConfiguredNetwork);
   const [customRpcUrl, setCustomRpcUrl] = useState("");
   const [inputPath, setInputPath] = useState(preConfiguredPath);
@@ -135,11 +137,19 @@ export default function App() {
 
   const wallet = useWallet();
 
-  // Determine if current path is an admin route and get the effective contract/path
+  // Determine effective contract based on route type and cross-contract navigation
   const isAdminRoute = inputPath.startsWith("/admin/") || inputPath === "/admin";
-  const effectiveContractId = isAdminRoute && adminContractId ? adminContractId : contractId;
-  // Strip /admin prefix for admin routes (admin contract expects /b/0/settings, not /admin/b/0/settings)
-  const effectivePath = isAdminRoute ? inputPath.replace(/^\/admin/, "") || "/" : inputPath;
+  let effectiveContractId = contractId;
+  let effectivePath = inputPath;
+
+  if (navigatedContractId) {
+    // Cross-contract navigation takes priority
+    effectiveContractId = navigatedContractId;
+    // Path is already set correctly when navigating
+  } else if (isAdminRoute && adminContractId) {
+    effectiveContractId = adminContractId;
+    effectivePath = inputPath.replace(/^\/admin/, "") || "/";
+  }
 
   // Reset dismissed wallet error when a new error occurs
   useEffect(() => {
@@ -181,9 +191,25 @@ export default function App() {
 
   const handlePathChange = useCallback(
     (newPath: string) => {
+      // Clear cross-contract navigation when navigating within same contract
+      setNavigatedContractId(null);
       setPath(newPath);
       setInputPath(newPath);
       // Update URL hash for shareable links
+      if (isEmbedded) {
+        updateHashPath(newPath);
+      }
+    },
+    [setPath, isEmbedded]
+  );
+
+  // Handle cross-contract navigation (render:@alias:/path or render:CONTRACT_ID:/path)
+  const handleContractNavigate = useCallback(
+    (targetContractId: string, newPath: string) => {
+      setNavigatedContractId(targetContractId);
+      setPath(newPath);
+      setInputPath(newPath);
+      // Update URL hash - include contract info for shareability
       if (isEmbedded) {
         updateHashPath(newPath);
       }
@@ -313,6 +339,7 @@ export default function App() {
               registryId={registryId || null}
               walletAddress={wallet.address}
               onPathChange={handlePathChange}
+              onContractNavigate={handleContractNavigate}
               onTransactionStart={handleTransactionStart}
               onTransactionComplete={handleTransactionComplete}
               onError={handleError}
@@ -586,6 +613,7 @@ export default function App() {
               registryId={registryId || null}
               walletAddress={wallet.address}
               onPathChange={handlePathChange}
+              onContractNavigate={handleContractNavigate}
               onTransactionStart={handleTransactionStart}
               onTransactionComplete={handleTransactionComplete}
               onError={handleError}
