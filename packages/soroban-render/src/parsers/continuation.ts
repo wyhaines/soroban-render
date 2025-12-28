@@ -80,7 +80,7 @@ const CONTINUE_PATTERN =
 const CHUNK_PATTERN =
   /\{\{chunk\s+collection="([^"]+)"\s+index=(\d+)(?:\s+placeholder="([^"]*)")?\s*\}\}/g;
 
-// {{render path="/b/1/t/0/replies/10"}}
+// {{render path="/items/1/details/page/2"}}
 // Used for waterfall loading of additional rendered content
 const RENDER_PATTERN = /\{\{render\s+path="([^"]+)"\s*\}\}/g;
 

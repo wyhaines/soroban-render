@@ -28,7 +28,7 @@ function convertArgToScVal(value: unknown, key?: string): xdr.ScVal {
       return nativeToScVal(value, { type: "address" });
     }
 
-    // For form fields that look like IDs (e.g., board_id, thread_id, parent_id),
+    // For form fields that look like IDs (e.g., entity_id, item_id, record_id),
     // convert to u64 to match typical Soroban contract signatures
     const isIdField = key && /_id$/i.test(key);
     const isPureInteger = /^[0-9]+$/.test(value);

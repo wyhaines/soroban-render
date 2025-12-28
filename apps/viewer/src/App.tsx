@@ -154,10 +154,9 @@ function updateHashPath(path: string, contractRef?: string | null) {
   }
 }
 
-function getConfigFromEnv(): { contract?: string; adminContract?: string; registryContract?: string; network?: Network } {
+function getConfigFromEnv(): { contract?: string; registryContract?: string; network?: Network } {
   return {
     contract: import.meta.env.VITE_CONTRACT_ID || undefined,
-    adminContract: import.meta.env.VITE_ADMIN_CONTRACT_ID || undefined,
     registryContract: import.meta.env.VITE_REGISTRY_ID || undefined,
     network: (import.meta.env.VITE_NETWORK as Network) || undefined,
   };
@@ -168,7 +167,6 @@ export default function App() {
   const envConfig = getConfigFromEnv();
 
   const preConfiguredContract = urlConfig.contract || envConfig.contract;
-  const preConfiguredAdminContract = envConfig.adminContract;
   const preConfiguredRegistryContract = envConfig.registryContract;
   const preConfiguredNetwork = urlConfig.network || envConfig.network || "local";
   const preConfiguredPath = urlConfig.path || "/";
@@ -178,7 +176,6 @@ export default function App() {
 
   const [contractId, setContractId] = useState(preConfiguredContract || "");
   const [inputContractId, setInputContractId] = useState(preConfiguredContract || "");
-  const [adminContractId] = useState(preConfiguredAdminContract || "");
   const [registryId] = useState(preConfiguredRegistryContract || "");
   // Cross-contract navigation: when navigating to a different contract via render:@alias:/path
   const [navigatedContractId, setNavigatedContractId] = useState<string | null>(null);
@@ -195,18 +192,13 @@ export default function App() {
 
   const wallet = useWallet();
 
-  // Determine effective contract based on route type and cross-contract navigation
-  const isAdminRoute = inputPath.startsWith("/admin/") || inputPath === "/admin";
+  // Determine effective contract based on cross-contract navigation
   let effectiveContractId = contractId;
-  let effectivePath = inputPath;
+  const effectivePath = inputPath;
 
   if (navigatedContractId) {
     // Cross-contract navigation takes priority
     effectiveContractId = navigatedContractId;
-    // Path is already set correctly when navigating
-  } else if (isAdminRoute && adminContractId) {
-    effectiveContractId = adminContractId;
-    effectivePath = inputPath.replace(/^\/admin/, "") || "/";
   }
 
   // Reset dismissed wallet error when a new error occurs
@@ -246,7 +238,13 @@ export default function App() {
       );
 
       if (resolved) {
-        setNavigatedContractId(resolved);
+        // If resolved contract is the base contract, clear navigation state
+        if (resolved === contractId) {
+          setNavigatedContractRef(null);
+          setNavigatedContractId(null);
+        } else {
+          setNavigatedContractId(resolved);
+        }
       }
       setNeedsContractResolution(false);
     };
@@ -292,6 +290,19 @@ export default function App() {
   // Handle cross-contract navigation (render:@alias:/path or render:CONTRACT_ID:/path)
   const handleContractNavigate = useCallback(
     (targetContractId: string, newPath: string, contractRef?: string) => {
+      // Check if we're navigating back to the base contract
+      // If so, clear cross-contract state to return to "home" mode
+      if (targetContractId === contractId) {
+        setNavigatedContractId(null);
+        setNavigatedContractRef(null);
+        setPath(newPath);
+        setInputPath(newPath);
+        if (isEmbedded) {
+          updateHashPath(newPath, null);
+        }
+        return;
+      }
+
       setNavigatedContractId(targetContractId);
       // Store the contract reference (alias or ID) for URL persistence
       // If contractRef is provided (e.g., "@profile"), use it; otherwise use the contract ID
@@ -304,7 +315,7 @@ export default function App() {
         updateHashPath(newPath, ref);
       }
     },
-    [setPath, isEmbedded]
+    [setPath, isEmbedded, contractId]
   );
 
   // Listen for browser back/forward navigation
@@ -318,7 +329,6 @@ export default function App() {
 
       // Handle contract context from URL
       if (hashRoute.contractRef) {
-        setNavigatedContractRef(hashRoute.contractRef);
         // Need to resolve the contract reference to an ID
         if (client) {
           const isAlias = hashRoute.contractRef.startsWith("@");
@@ -334,7 +344,14 @@ export default function App() {
           );
 
           if (resolved) {
-            setNavigatedContractId(resolved);
+            // If resolved contract is the base contract, clear navigation state
+            if (resolved === contractId) {
+              setNavigatedContractRef(null);
+              setNavigatedContractId(null);
+            } else {
+              setNavigatedContractRef(hashRoute.contractRef);
+              setNavigatedContractId(resolved);
+            }
           }
         }
       } else {

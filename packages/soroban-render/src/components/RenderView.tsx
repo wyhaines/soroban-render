@@ -310,8 +310,8 @@ export const defaultStyles = `
   margin-bottom: 0.25rem;
 }
 
-/* Action buttons - but allow contract styles to override via custom classes */
-.soroban-render-view a.soroban-action:not(.board-card):not(.thread-title):not(.nav-item) {
+/* Action buttons */
+.soroban-render-view a.soroban-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -329,7 +329,7 @@ export const defaultStyles = `
   margin-bottom: 0.25rem;
 }
 
-.soroban-render-view a.soroban-action:not(.board-card):not(.thread-title):not(.nav-item):hover {
+.soroban-render-view a.soroban-action:hover {
   background-color: var(--sds-clr-lilac-10);
   text-decoration: none;
   transform: translateY(-1px);
