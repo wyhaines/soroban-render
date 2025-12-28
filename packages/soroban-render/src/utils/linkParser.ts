@@ -203,14 +203,33 @@ export function parseLink(href: string): ParsedLink {
   };
 }
 
+/**
+ * Find the nearest form boundary for an element.
+ * Form boundaries are: <form> elements or elements with data-form attribute.
+ */
+function findFormBoundary(element: HTMLElement | null): HTMLElement | null {
+  while (element) {
+    if (element.tagName === "FORM" || element.hasAttribute("data-form")) {
+      return element;
+    }
+    element = element.parentElement;
+  }
+  return null;
+}
+
 export function collectFormInputs(
   container: HTMLElement,
   beforeElement?: HTMLElement
 ): Record<string, string> {
   const inputs: Record<string, string> = {};
-  const elements = container.querySelectorAll("input, select, textarea");
 
-  console.log("[soroban-render] collectFormInputs: found", elements.length, "form elements");
+  // Find form boundary for the clicked element
+  const formBoundary = beforeElement ? findFormBoundary(beforeElement) : null;
+  const searchContainer = formBoundary || container;
+
+  const elements = searchContainer.querySelectorAll("input, select, textarea");
+
+  console.log("[soroban-render] collectFormInputs: found", elements.length, "form elements in", formBoundary ? "form boundary" : "container");
 
   for (const element of elements) {
     const name = element.getAttribute("name");

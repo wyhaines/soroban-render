@@ -43,6 +43,12 @@ function convertArgToScVal(value: unknown, key?: string): xdr.ScVal {
       return nativeToScVal(parseInt(value, 10), { type: "u32" });
     }
 
+    // Convert "field" parameter to Symbol (used for field names in profile, etc.)
+    // Symbols are short identifiers (up to 32 chars, alphanumeric + underscore)
+    if (key === "field" && value.length <= 32 && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) {
+      return xdr.ScVal.scvSymbol(value);
+    }
+
     return xdr.ScVal.scvString(value);
   }
   if (typeof value === "number") {
