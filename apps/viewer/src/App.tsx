@@ -7,6 +7,7 @@ import {
   InteractiveJsonRenderView,
   jsonStyles,
   Networks,
+  resolveTargetContract,
   type NetworkName,
   type SorobanClient,
   type TransactionResult,
@@ -79,23 +80,75 @@ function Toast({ message, type, onClose, autoClose = 5000 }: ToastProps) {
   );
 }
 
-function getConfigFromUrl(): { contract?: string; network?: Network; path?: string } {
-  const params = new URLSearchParams(window.location.search);
+/**
+ * Parse the URL hash to extract contract context and path.
+ * Supports formats:
+ * - #/path - just a path (uses default contract)
+ * - #@alias:/path - contract alias with path (e.g., #@profile:/u/wyhaines001)
+ * - #CONTRACTID:/path - explicit contract ID with path
+ */
+function parseHashRoute(): { contractRef?: string; path: string } {
+  const hash = window.location.hash ? window.location.hash.slice(1) : "";
 
-  // Support hash-based routing: #/about -> /about
-  const hashPath = window.location.hash ? window.location.hash.slice(1) : undefined;
+  if (!hash || hash === "/") {
+    return { path: "/" };
+  }
+
+  // Check for @alias:/path format
+  if (hash.startsWith("@")) {
+    const colonIndex = hash.indexOf(":/");
+    if (colonIndex > 0) {
+      return {
+        contractRef: hash.slice(0, colonIndex), // @alias
+        path: hash.slice(colonIndex + 1), // /path
+      };
+    }
+    // @alias without path means root
+    return {
+      contractRef: hash,
+      path: "/",
+    };
+  }
+
+  // Check for CONTRACT_ID:/path format (contract IDs start with C)
+  if (hash.startsWith("C") && hash.length > 56) {
+    const colonIndex = hash.indexOf(":/");
+    if (colonIndex === 56) { // Contract IDs are 56 chars
+      return {
+        contractRef: hash.slice(0, colonIndex),
+        path: hash.slice(colonIndex + 1),
+      };
+    }
+  }
+
+  // Just a path
+  return { path: hash.startsWith("/") ? hash : `/${hash}` };
+}
+
+function getConfigFromUrl(): { contract?: string; network?: Network; path?: string; contractRef?: string } {
+  const params = new URLSearchParams(window.location.search);
+  const hashRoute = parseHashRoute();
 
   return {
     contract: params.get("contract") || undefined,
     network: (params.get("network") as Network) || undefined,
-    // Hash path takes precedence over query param
-    path: hashPath || params.get("path") || undefined,
+    path: hashRoute.path || params.get("path") || undefined,
+    contractRef: hashRoute.contractRef,
   };
 }
 
-function updateHashPath(path: string) {
+function updateHashPath(path: string, contractRef?: string | null) {
   // Update URL hash without triggering a page reload
-  const newHash = path === "/" ? "" : `#${path}`;
+  // Format: #@alias:/path or #CONTRACTID:/path or just #/path
+  let newHash: string;
+  if (contractRef) {
+    newHash = `#${contractRef}:${path}`;
+  } else if (path === "/") {
+    newHash = "";
+  } else {
+    newHash = `#${path}`;
+  }
+
   if (window.location.hash !== newHash) {
     window.history.pushState(null, "", newHash || window.location.pathname + window.location.search);
   }
@@ -119,6 +172,7 @@ export default function App() {
   const preConfiguredRegistryContract = envConfig.registryContract;
   const preConfiguredNetwork = urlConfig.network || envConfig.network || "local";
   const preConfiguredPath = urlConfig.path || "/";
+  const preConfiguredContractRef = urlConfig.contractRef;
 
   const isEmbedded = !!preConfiguredContract;
 
@@ -128,12 +182,16 @@ export default function App() {
   const [registryId] = useState(preConfiguredRegistryContract || "");
   // Cross-contract navigation: when navigating to a different contract via render:@alias:/path
   const [navigatedContractId, setNavigatedContractId] = useState<string | null>(null);
+  // Track the contract reference (alias or ID) for URL persistence
+  const [navigatedContractRef, setNavigatedContractRef] = useState<string | null>(preConfiguredContractRef || null);
   const [network, setNetwork] = useState<Network>(preConfiguredNetwork);
   const [customRpcUrl, setCustomRpcUrl] = useState("");
   const [inputPath, setInputPath] = useState(preConfiguredPath);
   const [txPending, setTxPending] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
   const [dismissedWalletError, setDismissedWalletError] = useState<string | null>(null);
+  // Flag to indicate we need to resolve contract ref on first render
+  const [needsContractResolution, setNeedsContractResolution] = useState(!!preConfiguredContractRef);
 
   const wallet = useWallet();
 
@@ -169,6 +227,33 @@ export default function App() {
     return createClient(config.rpcUrl, config.networkPassphrase);
   }, [network, customRpcUrl]);
 
+  // Resolve contract reference from URL on initial load
+  useEffect(() => {
+    if (!needsContractResolution || !navigatedContractRef || !client) return;
+
+    const resolveContract = async () => {
+      // Parse the contract ref - could be @alias or a contract ID
+      const isAlias = navigatedContractRef.startsWith("@");
+      const alias = isAlias ? navigatedContractRef.slice(1) : undefined;
+      const explicitContractId = isAlias ? undefined : navigatedContractRef;
+
+      const resolved = await resolveTargetContract(
+        alias,
+        explicitContractId,
+        contractId,
+        registryId || undefined,
+        client
+      );
+
+      if (resolved) {
+        setNavigatedContractId(resolved);
+      }
+      setNeedsContractResolution(false);
+    };
+
+    resolveContract();
+  }, [needsContractResolution, navigatedContractRef, client, contractId, registryId]);
+
   const { html, jsonDocument, format, loading, error, path, setPath, refetch, css, scopeClassName } = useRender(
     client,
     effectiveContractId || null,
@@ -191,27 +276,32 @@ export default function App() {
 
   const handlePathChange = useCallback(
     (newPath: string) => {
-      // Clear cross-contract navigation when navigating within same contract
-      setNavigatedContractId(null);
+      // DON'T clear cross-contract navigation - maintain context for internal links
+      // If we're currently viewing a cross-contract target, internal links should
+      // stay on that contract
       setPath(newPath);
       setInputPath(newPath);
-      // Update URL hash for shareable links
+      // Update URL hash for shareable links, preserving contract context
       if (isEmbedded) {
-        updateHashPath(newPath);
+        updateHashPath(newPath, navigatedContractRef);
       }
     },
-    [setPath, isEmbedded]
+    [setPath, isEmbedded, navigatedContractRef]
   );
 
   // Handle cross-contract navigation (render:@alias:/path or render:CONTRACT_ID:/path)
   const handleContractNavigate = useCallback(
-    (targetContractId: string, newPath: string) => {
+    (targetContractId: string, newPath: string, contractRef?: string) => {
       setNavigatedContractId(targetContractId);
+      // Store the contract reference (alias or ID) for URL persistence
+      // If contractRef is provided (e.g., "@profile"), use it; otherwise use the contract ID
+      const ref = contractRef || targetContractId;
+      setNavigatedContractRef(ref);
       setPath(newPath);
       setInputPath(newPath);
       // Update URL hash - include contract info for shareability
       if (isEmbedded) {
-        updateHashPath(newPath);
+        updateHashPath(newPath, ref);
       }
     },
     [setPath, isEmbedded]
@@ -221,15 +311,42 @@ export default function App() {
   useEffect(() => {
     if (!isEmbedded) return;
 
-    const handlePopState = () => {
-      const hashPath = window.location.hash ? window.location.hash.slice(1) : "/";
-      setPath(hashPath);
-      setInputPath(hashPath);
+    const handlePopState = async () => {
+      const hashRoute = parseHashRoute();
+      setPath(hashRoute.path);
+      setInputPath(hashRoute.path);
+
+      // Handle contract context from URL
+      if (hashRoute.contractRef) {
+        setNavigatedContractRef(hashRoute.contractRef);
+        // Need to resolve the contract reference to an ID
+        if (client) {
+          const isAlias = hashRoute.contractRef.startsWith("@");
+          const alias = isAlias ? hashRoute.contractRef.slice(1) : undefined;
+          const explicitContractId = isAlias ? undefined : hashRoute.contractRef;
+
+          const resolved = await resolveTargetContract(
+            alias,
+            explicitContractId,
+            contractId,
+            registryId || undefined,
+            client
+          );
+
+          if (resolved) {
+            setNavigatedContractId(resolved);
+          }
+        }
+      } else {
+        // No contract context in URL - clear cross-contract state
+        setNavigatedContractRef(null);
+        setNavigatedContractId(null);
+      }
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [isEmbedded, setPath]);
+  }, [isEmbedded, setPath, client, contractId, registryId]);
 
   const handleTransactionStart = useCallback(() => {
     setTxPending(true);

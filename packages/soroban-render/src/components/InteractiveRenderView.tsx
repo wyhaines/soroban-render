@@ -148,8 +148,9 @@ export interface InteractiveRenderViewProps {
    * When provided, enables navigating to a different contract's render output.
    * @param contractId - The resolved contract ID to navigate to
    * @param path - The path to render on that contract
+   * @param contractRef - Optional original reference (e.g., "@profile" or contract ID) for URL persistence
    */
-  onContractNavigate?: (contractId: string, path: string) => void;
+  onContractNavigate?: (contractId: string, path: string, contractRef?: string) => void;
   onTransactionStart?: () => void;
   onTransactionComplete?: (result: TransactionResult) => void;
   onError?: (error: string) => void;
@@ -284,7 +285,9 @@ export function InteractiveRenderView({
             return;
           }
 
-          onContractNavigate(targetContractId, parsed.path || "/");
+          // Pass the original reference (alias or contract ID) for URL persistence
+          const contractRef = parsed.alias ? `@${parsed.alias}` : parsed.contractId;
+          onContractNavigate(targetContractId, parsed.path || "/", contractRef);
           return;
         }
 
