@@ -12,6 +12,7 @@ import {
 } from "../parsers/continuation";
 import { ProgressiveLoader } from "../utils/progressiveLoader";
 import { loadRenderContinuations, hasRenderContinuations } from "../utils/renderContinuation";
+import { parseMeta, applyMetaToDocument } from "../parsers/meta";
 
 export interface UseRenderResult {
   html: string | null;
@@ -91,6 +92,11 @@ export interface UseRenderOptions extends RenderOptions {
    * Default: 100
    */
   renderContinuationMaxTotal?: number;
+  /**
+   * Whether to extract and apply meta tags (favicon, title, etc.) to the document.
+   * Default: true
+   */
+  applyMeta?: boolean;
 }
 
 export function useRender(
@@ -114,6 +120,7 @@ export function useRender(
     resolveRenderContinuations: shouldResolveRenderContinuations = true,
     renderContinuationMaxConcurrent = 2,
     renderContinuationMaxTotal = 100,
+    applyMeta: shouldApplyMeta = true,
   } = options;
 
   const [currentPath, setCurrentPath] = useState(initialPath);
@@ -186,6 +193,16 @@ export function useRender(
       } else {
         setCss(null);
         setScopeClassName(null);
+      }
+
+      // Extract and apply meta tags if enabled
+      if (shouldApplyMeta) {
+        const metaResult = parseMeta(content);
+        content = metaResult.content;
+        // Apply meta to document (favicon, title, etc.)
+        if (Object.keys(metaResult.meta).length > 0) {
+          applyMetaToDocument(metaResult.meta);
+        }
       }
 
       setRaw(content);
@@ -379,7 +396,7 @@ export function useRender(
     } finally {
       setLoading(false);
     }
-  }, [client, contractId, currentPath, viewer, shouldResolveIncludes, includeCacheTtl, shouldResolveStyles, styleCacheTtl, themeContractId, scopeStyles, shouldResolveProgressive, progressiveBatchSize, progressiveMaxConcurrent, shouldResolveRenderContinuations, renderContinuationMaxConcurrent, renderContinuationMaxTotal]);
+  }, [client, contractId, currentPath, viewer, shouldResolveIncludes, includeCacheTtl, shouldResolveStyles, styleCacheTtl, themeContractId, scopeStyles, shouldResolveProgressive, progressiveBatchSize, progressiveMaxConcurrent, shouldResolveRenderContinuations, renderContinuationMaxConcurrent, renderContinuationMaxTotal, shouldApplyMeta]);
 
   useEffect(() => {
     if (enabled) {

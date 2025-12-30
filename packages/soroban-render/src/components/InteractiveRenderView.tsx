@@ -1,8 +1,19 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import { parseLink, collectFormInputs, ParsedLink } from "../utils/linkParser";
 import { submitTransaction, TransactionResult } from "../utils/transaction";
 import { SorobanClient } from "../utils/client";
 import { resolveTargetContract } from "../utils/contractResolver";
+import { MarkdownEditorWrapper } from "./MarkdownEditorWrapper";
+
+// Info needed to render a markdown editor via portal
+interface MarkdownEditorInfo {
+  container: HTMLElement;
+  name: string;
+  placeholder: string;
+  rows: number;
+  initialValue: string;
+}
 
 // Modal for user-settable parameters
 interface ParamModalProps {
@@ -188,6 +199,7 @@ export function InteractiveRenderView({
 }: InteractiveRenderViewProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pendingUserParams, setPendingUserParams] = useState<PendingUserParams | null>(null);
+  const [markdownEditors, setMarkdownEditors] = useState<MarkdownEditorInfo[]>([]);
 
   // Handle modal submission
   const handleParamSubmit = useCallback(
@@ -447,6 +459,64 @@ export function InteractiveRenderView({
     // Include html in dependencies so effect re-runs when content renders
   }, [handleClick, html]);
 
+  // Find and replace markdown textareas with rich editors
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const textareas = container.querySelectorAll(
+      'textarea[data-editor="markdown"]'
+    );
+
+    if (textareas.length === 0) {
+      setMarkdownEditors([]);
+      return;
+    }
+
+    const editorInfos: MarkdownEditorInfo[] = [];
+
+    textareas.forEach((textarea) => {
+      const ta = textarea as HTMLTextAreaElement;
+
+      // Create container for React component
+      const editorContainer = document.createElement("div");
+      editorContainer.className = "md-editor-container";
+      ta.parentNode?.insertBefore(editorContainer, ta);
+
+      // Hide original textarea
+      ta.style.display = "none";
+
+      // Get initial value - try multiple sources since innerHTML-created textareas
+      // may not have .value set correctly
+      const initialValue = ta.value || ta.defaultValue || ta.textContent || "";
+
+      console.log("[soroban-render] Markdown textarea found:", {
+        name: ta.name,
+        value: ta.value,
+        defaultValue: ta.defaultValue,
+        textContent: ta.textContent,
+        initialValue,
+      });
+
+      editorInfos.push({
+        container: editorContainer,
+        name: ta.name,
+        placeholder: ta.placeholder || "",
+        rows: ta.rows || 10,
+        initialValue,
+      });
+    });
+
+    setMarkdownEditors(editorInfos);
+
+    // Cleanup on unmount or when html changes
+    return () => {
+      editorInfos.forEach((info) => {
+        info.container.remove();
+      });
+    };
+  }, [html]);
+
   if (loading) {
     if (loadingComponent) {
       return <>{loadingComponent}</>;
@@ -535,6 +605,19 @@ export function InteractiveRenderView({
           onSubmit={handleParamSubmit}
           onCancel={handleParamCancel}
         />
+      )}
+      {/* Render markdown editors via portals into their containers */}
+      {markdownEditors.map((editor, index) =>
+        createPortal(
+          <MarkdownEditorWrapper
+            key={index}
+            name={editor.name}
+            initialValue={editor.initialValue}
+            placeholder={editor.placeholder}
+            rows={editor.rows}
+          />,
+          editor.container
+        )
       )}
     </>
   );

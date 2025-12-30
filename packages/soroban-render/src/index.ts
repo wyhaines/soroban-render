@@ -177,3 +177,11 @@ export {
   clearAliasCache,
   getAliasCacheSize,
 } from "./utils/contractResolver";
+
+export {
+  parseMeta,
+  hasMetaTags,
+  applyMetaToDocument,
+  type MetaTag,
+  type ParsedMeta,
+} from "./parsers/meta";

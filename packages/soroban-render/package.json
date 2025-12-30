@@ -30,6 +30,7 @@
   "dependencies": {
     "@stellar/freighter-api": "^3.0.0",
     "@stellar/stellar-sdk": "^13.0.0",
+    "@uiw/react-md-editor": "^4.0.4",
     "dompurify": "^3.2.0",
     "marked": "^17.0.1"
   },
