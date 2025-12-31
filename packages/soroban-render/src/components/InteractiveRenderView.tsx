@@ -475,23 +475,31 @@ export function InteractiveRenderView({
 
     const editorInfos: MarkdownEditorInfo[] = [];
 
+    const originalTextareas: { ta: HTMLTextAreaElement; name: string }[] = [];
+
     textareas.forEach((textarea) => {
       const ta = textarea as HTMLTextAreaElement;
+      const originalName = ta.name;
 
       // Create container for React component
       const editorContainer = document.createElement("div");
       editorContainer.className = "md-editor-container";
       ta.parentNode?.insertBefore(editorContainer, ta);
 
-      // Hide original textarea
+      // Hide original textarea and remove its name so collectFormInputs doesn't find it
+      // (the MarkdownEditorWrapper creates a hidden input with the same name)
       ta.style.display = "none";
+      ta.removeAttribute("name");
+
+      // Store original for cleanup
+      originalTextareas.push({ ta, name: originalName });
 
       // Get initial value - try multiple sources since innerHTML-created textareas
       // may not have .value set correctly
       const initialValue = ta.value || ta.defaultValue || ta.textContent || "";
 
       console.log("[soroban-render] Markdown textarea found:", {
-        name: ta.name,
+        name: originalName,
         value: ta.value,
         defaultValue: ta.defaultValue,
         textContent: ta.textContent,
@@ -500,7 +508,7 @@ export function InteractiveRenderView({
 
       editorInfos.push({
         container: editorContainer,
-        name: ta.name,
+        name: originalName,
         placeholder: ta.placeholder || "",
         rows: ta.rows || 10,
         initialValue,
@@ -513,6 +521,11 @@ export function InteractiveRenderView({
     return () => {
       editorInfos.forEach((info) => {
         info.container.remove();
+      });
+      // Restore original textarea names (for graceful degradation)
+      originalTextareas.forEach(({ ta, name }) => {
+        ta.setAttribute("name", name);
+        ta.style.display = "";
       });
     };
   }, [html]);
