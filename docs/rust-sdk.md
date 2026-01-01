@@ -685,10 +685,12 @@ Low-level utilities for working with `Bytes` in Soroban's `no_std` environment.
 ### Constants
 
 ```rust
-pub const STRING_BUFFER_SIZE: usize = 256;
+pub const MAX_STRING_SIZE: usize = 16384;
 ```
 
-Strings longer than 256 bytes will be truncated when using `string_to_bytes`.
+Strings up to 16KB are supported. The SDK uses tiered buffers (256B, 1KB, 4KB, 16KB) to balance stack usage with capability. Strings exceeding 16KB return a placeholder message.
+
+For content exceeding this limit, use [soroban-chonk](https://github.com/wyhaines/soroban-chonk) with progressive loading. See [Best Practices - Progressive Loading](./best-practices.md#progressive-loading) for patterns.
 
 ### concat_bytes
 
@@ -705,29 +707,11 @@ let result = concat_bytes(&env, &parts);
 
 ### string_to_bytes
 
-Convert a `soroban_sdk::String` to `Bytes`.
+Convert a `soroban_sdk::String` to `Bytes`. Uses tiered buffers internally.
 
 ```rust
 let s = String::from_str(&env, "Hello");
 let bytes = string_to_bytes(&env, &s);
-```
-
-### u32_to_bytes
-
-Convert a `u32` to its decimal string representation as `Bytes`.
-
-```rust
-let bytes = u32_to_bytes(&env, 42);
-// bytes = "42"
-```
-
-### i64_to_bytes
-
-Convert an `i64` to its decimal string representation as `Bytes`.
-
-```rust
-let bytes = i64_to_bytes(&env, -42);
-// bytes = "-42"
 ```
 
 ### escape_json_string
@@ -749,6 +733,91 @@ Same as `escape_json_string` but works with byte slices.
 ```rust
 let escaped = escape_json_bytes(&env, b"Hello \"World\"");
 ```
+
+
+## Number Conversion
+
+The SDK provides bidirectional conversion between numeric types and their `Bytes` string representations. These functions support all standard Rust integer types plus Soroban's `U256` and `I256`.
+
+### Converting Numbers to Decimal Strings
+
+Convert any numeric type to its decimal string representation as `Bytes`. Signed types handle negative values automatically.
+
+```rust
+let bytes = u64_to_bytes(&env, 12345);
+// bytes contains "12345"
+
+let bytes = i64_to_bytes(&env, -42);
+// bytes contains "-42"
+```
+
+The full set includes: `u32_to_bytes`, `i32_to_bytes`, `u64_to_bytes`, `i64_to_bytes`, `u128_to_bytes`, `i128_to_bytes`, `u256_to_bytes`, `i256_to_bytes`.
+
+### Converting Numbers to Hexadecimal
+
+Convert numeric types to lowercase hexadecimal with a `0x` prefix. Negative values use a `-0x` prefix.
+
+```rust
+let bytes = u64_to_hex(&env, 255);
+// bytes contains "0xff"
+
+let bytes = i32_to_hex(&env, -16);
+// bytes contains "-0x10"
+```
+
+The full set includes: `u32_to_hex`, `i32_to_hex`, `u64_to_hex`, `i64_to_hex`, `u128_to_hex`, `i128_to_hex`, `u256_to_hex`, `i256_to_hex`.
+
+### Parsing Decimal Strings
+
+Parse a `Bytes` string back to a numeric type. These functions return `Option<T>` to handle invalid input safely.
+
+```rust
+let bytes = Bytes::from_slice(&env, b"12345");
+let value = bytes_to_u64(&bytes);
+// value is Some(12345)
+
+let invalid = Bytes::from_slice(&env, b"abc");
+let value = bytes_to_u64(&invalid);
+// value is None
+```
+
+Parsing uses checked arithmetic to detect overflow. Values that exceed the target type's range return `None`.
+
+The full set includes: `bytes_to_u32`, `bytes_to_i32`, `bytes_to_u64`, `bytes_to_i64`, `bytes_to_u128`, `bytes_to_i128`, `bytes_to_u256`, `bytes_to_i256`.
+
+### Parsing Hexadecimal Strings
+
+Parse hexadecimal strings to numeric types. The `0x` prefix is optional and parsing is case-insensitive.
+
+```rust
+let bytes = Bytes::from_slice(&env, b"0xFF");
+let value = hex_to_u32(&bytes);
+// value is Some(255)
+
+let bytes = Bytes::from_slice(&env, b"ff");
+let value = hex_to_u32(&bytes);
+// value is Some(255)
+```
+
+The full set includes: `hex_to_u32`, `hex_to_i32`, `hex_to_u64`, `hex_to_i64`, `hex_to_u128`, `hex_to_i128`, `hex_to_u256`, `hex_to_i256`.
+
+### String Convenience Functions
+
+When parsing form input, use the `string_to_*` functions that work directly with `soroban_sdk::String`.
+
+```rust
+let input = String::from_str(&env, "42");
+let value = string_to_u32(&env, &input);
+// value is Some(42)
+```
+
+The full set includes: `string_to_u32`, `string_to_i32`, `string_to_u64`, `string_to_i64`, `string_to_u128`, `string_to_i128`, `string_to_u256`, `string_to_i256`.
+
+### Supported Types
+
+All conversion functions are available for: `u32`, `i32`, `u64`, `i64`, `u128`, `i128`, `U256`, `I256`.
+
+For the complete function reference with all signatures, see the [SDK's llms-full.md](https://github.com/wyhaines/soroban-render-sdk/blob/main/llms-full.md#byte-utilities).
 
 
 ## Registry Module
