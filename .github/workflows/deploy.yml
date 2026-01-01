@@ -275,6 +275,7 @@ jobs:
           # Homepage contract that links to all demos
           VITE_CONTRACT_ID=${{ steps.deploy-homepage.outputs.contract_id }}
           VITE_NETWORK=testnet
+          VITE_BASE_PATH=/soroban-render/
           EOF
           echo "Generated .env.production:"
           cat apps/viewer/.env.production
