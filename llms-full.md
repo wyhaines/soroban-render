@@ -578,6 +578,59 @@ StyleBuilder::new(&env)
     .build()
 ```
 
+### Byte Utilities
+
+| Function | Description |
+|----------|-------------|
+| `concat_bytes(&env, &parts)` | Concatenate `Vec<Bytes>` into single `Bytes` |
+| `string_to_bytes(&env, &s)` | Convert `soroban_sdk::String` to `Bytes` |
+| `escape_json_string(&env, &s)` | Escape string for JSON inclusion |
+| `escape_json_bytes(&env, bytes)` | Escape byte slice for JSON |
+
+Max string size: 16KB. For larger content, use soroban-chonk with progressive loading.
+
+### Number Conversion
+
+Bidirectional conversion for all integer types plus `U256`/`I256`.
+
+**To Decimal Bytes:**
+
+| Function | Example |
+|----------|---------|
+| `u32_to_bytes(&env, 42)` | `"42"` |
+| `i64_to_bytes(&env, -42)` | `"-42"` |
+| `u128_to_bytes`, `i128_to_bytes`, `u256_to_bytes`, `i256_to_bytes` | Same pattern |
+
+**To Hexadecimal:**
+
+| Function | Example |
+|----------|---------|
+| `u64_to_hex(&env, 255)` | `"0xff"` |
+| `i32_to_hex(&env, -16)` | `"-0x10"` |
+| All types: `u32`, `i32`, `u64`, `i64`, `u128`, `i128`, `U256`, `I256` | |
+
+**Parse Decimal (returns `Option<T>`):**
+
+| Function | Input | Output |
+|----------|-------|--------|
+| `bytes_to_u64(&bytes)` | `"12345"` | `Some(12345)` |
+| `bytes_to_i32(&bytes)` | `"-42"` | `Some(-42)` |
+| `bytes_to_*(&bytes)` | `"abc"` | `None` |
+
+**Parse Hexadecimal (returns `Option<T>`):**
+
+| Function | Input | Output |
+|----------|-------|--------|
+| `hex_to_u32(&bytes)` | `"0xFF"` or `"ff"` | `Some(255)` |
+| `hex_to_*(&bytes)` | Case-insensitive, `0x` prefix optional | |
+
+**String Convenience (for form input):**
+
+| Function | Example |
+|----------|---------|
+| `string_to_u32(&env, &s)` | Parse `soroban_sdk::String` to `u32` |
+| `string_to_*` variants | All integer types supported |
+
 ---
 
 ## MULTI-CONTRACT EXAMPLE (soroban-boards)
