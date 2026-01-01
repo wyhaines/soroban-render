@@ -813,6 +813,22 @@ let value = string_to_u32(&env, &input);
 
 The full set includes: `string_to_u32`, `string_to_i32`, `string_to_u64`, `string_to_i64`, `string_to_u128`, `string_to_i128`, `string_to_u256`, `string_to_i256`.
 
+### &str Convenience Functions
+
+For string literals or `&str` values, use the `str_to_*` functions for a more ergonomic API.
+
+```rust
+let value = str_to_u256(&env, "12345");
+// value is Some(U256)
+
+let n = str_to_i64(&env, "-42");
+// n is Some(-42)
+```
+
+These avoid the need to create an intermediate `soroban_sdk::String` or `Bytes`.
+
+The full set includes: `str_to_u32`, `str_to_i32`, `str_to_u64`, `str_to_i64`, `str_to_u128`, `str_to_i128`, `str_to_u256`, `str_to_i256`.
+
 ### Supported Types
 
 All conversion functions are available for: `u32`, `i32`, `u64`, `i64`, `u128`, `i128`, `U256`, `I256`.

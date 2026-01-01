@@ -631,6 +631,13 @@ Bidirectional conversion for all integer types plus `U256`/`I256`.
 | `string_to_u32(&env, &s)` | Parse `soroban_sdk::String` to `u32` |
 | `string_to_*` variants | All integer types supported |
 
+**&str Convenience (for string literals):**
+
+| Function | Example |
+|----------|---------|
+| `str_to_u256(&env, "123")` | Parse `&str` directly to `U256` |
+| `str_to_*` variants | All integer types supported |
+
 ---
 
 ## MULTI-CONTRACT EXAMPLE (soroban-boards)
