@@ -195,7 +195,13 @@ describe("InteractiveRenderView", () => {
       const onTransactionComplete = vi.fn();
       mockSubmitTransaction.mockResolvedValue({
         success: false,
-        error: "Transaction failed",
+        error: {
+          type: 'contract',
+          code: 1,
+          rawMessage: "Transaction failed",
+          userMessage: "Transaction failed",
+          isRetryable: true,
+        },
       });
 
       render(
@@ -216,7 +222,10 @@ describe("InteractiveRenderView", () => {
       });
 
       await waitFor(() => {
-        expect(onError).toHaveBeenCalledWith("Transaction failed");
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+          type: 'contract',
+          userMessage: "Transaction failed",
+        }));
       });
     });
   });
