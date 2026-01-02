@@ -17,6 +17,13 @@ export {
   type TransactionResult,
 } from "./utils/transaction";
 
+export {
+  parseSimulationError,
+  lookupErrorMessage,
+  isParsedError,
+  type ParsedError,
+} from "./utils/errorParser";
+
 export { parseMarkdown, detectFormat } from "./parsers/markdown";
 
 export {
@@ -185,3 +192,10 @@ export {
   type MetaTag,
   type ParsedMeta,
 } from "./parsers/meta";
+
+export {
+  parseErrors,
+  hasErrorTags,
+  type ErrorTag,
+  type ParsedErrors,
+} from "./parsers/errors";

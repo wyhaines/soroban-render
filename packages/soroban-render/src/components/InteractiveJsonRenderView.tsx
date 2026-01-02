@@ -3,6 +3,7 @@ import { JsonRenderView, JsonRenderViewProps } from "./JsonRenderView";
 import { JsonUIDocument } from "../parsers/json";
 import { submitTransaction, TransactionResult } from "../utils/transaction";
 import { SorobanClient } from "../utils/client";
+import { ParsedError } from "../utils/errorParser";
 
 export interface InteractiveJsonRenderViewProps
   extends Omit<JsonRenderViewProps, "onPathChange" | "onTransaction" | "onFormSubmit"> {
@@ -13,7 +14,7 @@ export interface InteractiveJsonRenderViewProps
   onPathChange?: (path: string) => void;
   onTransactionStart?: () => void;
   onTransactionComplete?: (result: TransactionResult) => void;
-  onError?: (error: string) => void;
+  onError?: (error: string | ParsedError) => void;
 }
 
 export function InteractiveJsonRenderView({
@@ -54,6 +55,7 @@ export function InteractiveJsonRenderView({
       onTransactionComplete?.(result);
 
       if (!result.success && result.error) {
+        // Pass the full ParsedError to onError
         onError?.(result.error);
       }
     },

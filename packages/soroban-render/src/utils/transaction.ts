@@ -9,6 +9,7 @@ import {
 } from "@stellar/stellar-sdk";
 import { signTransaction, getNetworkDetails } from "@stellar/freighter-api";
 import { SorobanClient } from "./client";
+import { ParsedError, parseSimulationError } from "./errorParser";
 
 export interface TransactionParams {
   method: string;
@@ -18,7 +19,7 @@ export interface TransactionParams {
 export interface TransactionResult {
   success: boolean;
   hash?: string;
-  error?: string;
+  error?: ParsedError;
 }
 
 function convertArgToScVal(value: unknown, key?: string): xdr.ScVal {
@@ -129,7 +130,9 @@ export async function submitTransaction(
 
     if (rpc.Api.isSimulationError(simResult)) {
       console.error("[soroban-render] Simulation error:", simResult.error);
-      throw new Error(`Simulation failed: ${simResult.error}`);
+      // Parse the simulation error and return structured error
+      const parsed = parseSimulationError(simResult.error);
+      return { success: false, error: parsed };
     }
 
     if (!rpc.Api.isSimulationSuccess(simResult)) {
@@ -181,7 +184,30 @@ export async function submitTransaction(
           if (getResult.status === "SUCCESS") {
             return { success: true, hash };
           } else {
-            throw new Error(`Transaction failed: ${getResult.status}`);
+            // Extract detailed error information from failed transaction
+            console.error("[soroban-render] Transaction failed:", getResult);
+            let errorDetail = `Transaction failed: ${getResult.status}`;
+
+            // Try to get result XDR for more details
+            if ('resultXdr' in getResult && getResult.resultXdr) {
+              try {
+                const resultXdr = getResult.resultXdr;
+                console.error("[soroban-render] Result XDR:", resultXdr.toXDR('base64'));
+              } catch (e) {
+                // Ignore XDR parsing errors
+              }
+            }
+
+            // Try to get result meta for diagnostic events
+            if ('resultMetaXdr' in getResult && getResult.resultMetaXdr) {
+              try {
+                console.error("[soroban-render] Result Meta available - check for diagnostic events");
+              } catch (e) {
+                // Ignore
+              }
+            }
+
+            throw new Error(errorDetail);
           }
         } catch (pollError) {
           // Handle SDK/RPC version mismatch errors gracefully
@@ -200,9 +226,10 @@ export async function submitTransaction(
 
     return { success: true, hash: sendResult.hash };
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Transaction failed";
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Transaction failed",
+      error: parseSimulationError(errorMessage),
     };
   }
 }

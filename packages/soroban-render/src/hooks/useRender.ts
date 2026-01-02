@@ -13,6 +13,7 @@ import {
 import { ProgressiveLoader } from "../utils/progressiveLoader";
 import { loadRenderContinuations, hasRenderContinuations } from "../utils/renderContinuation";
 import { parseMeta, applyMetaToDocument } from "../parsers/meta";
+import { parseErrors } from "../parsers/errors";
 
 export interface UseRenderResult {
   html: string | null;
@@ -28,6 +29,8 @@ export interface UseRenderResult {
   css: string | null;
   /** Scope class name to apply to container for CSS isolation */
   scopeClassName: string | null;
+  /** Contract-defined error code to message mappings from {{errors ...}} tags */
+  errorMappings: Record<string, string> | null;
 }
 
 export interface UseRenderOptions extends RenderOptions {
@@ -132,6 +135,7 @@ export function useRender(
   const [error, setError] = useState<string | null>(null);
   const [css, setCss] = useState<string | null>(null);
   const [scopeClassName, setScopeClassName] = useState<string | null>(null);
+  const [errorMappings, setErrorMappings] = useState<Record<string, string> | null>(null);
 
   // Cache for include resolution (persists across renders)
   const includeCacheRef = useRef<Map<string, { content: string; timestamp: number }>>(new Map());
@@ -203,6 +207,15 @@ export function useRender(
         if (Object.keys(metaResult.meta).length > 0) {
           applyMetaToDocument(metaResult.meta);
         }
+      }
+
+      // Extract error mappings from {{errors ...}} tags
+      const errorsResult = parseErrors(content);
+      content = errorsResult.content;
+      if (Object.keys(errorsResult.errorMappings).length > 0) {
+        setErrorMappings(errorsResult.errorMappings);
+      } else {
+        setErrorMappings(null);
       }
 
       setRaw(content);
@@ -393,6 +406,7 @@ export function useRender(
       setFormat(null);
       setCss(null);
       setScopeClassName(null);
+      setErrorMappings(null);
     } finally {
       setLoading(false);
     }
@@ -416,6 +430,7 @@ export function useRender(
     refetch: fetchRender,
     css,
     scopeClassName,
+    errorMappings,
   };
 }
 

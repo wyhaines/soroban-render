@@ -5,6 +5,7 @@ import { submitTransaction, TransactionResult } from "../utils/transaction";
 import { SorobanClient } from "../utils/client";
 import { resolveTargetContract } from "../utils/contractResolver";
 import { MarkdownEditorWrapper } from "./MarkdownEditorWrapper";
+import { ParsedError, lookupErrorMessage } from "../utils/errorParser";
 
 // Info needed to render a markdown editor via portal
 interface MarkdownEditorInfo {
@@ -13,6 +14,7 @@ interface MarkdownEditorInfo {
   placeholder: string;
   rows: number;
   initialValue: string;
+  onValueChange: (value: string) => void;
 }
 
 // Modal for user-settable parameters
@@ -164,11 +166,20 @@ export interface InteractiveRenderViewProps {
   onContractNavigate?: (contractId: string, path: string, contractRef?: string) => void;
   onTransactionStart?: () => void;
   onTransactionComplete?: (result: TransactionResult) => void;
-  onError?: (error: string) => void;
+  /**
+   * Called when an error occurs. Receives either a string for simple errors
+   * or a ParsedError for transaction failures with structured error info.
+   */
+  onError?: (error: string | ParsedError) => void;
   /** CSS from contract styles() function and {{style}} tags */
   css?: string | null;
   /** Scope class name for CSS isolation */
   scopeClassName?: string | null;
+  /**
+   * Contract-defined error code to message mappings from {{errors ...}} tags.
+   * Used to provide custom user-friendly error messages for specific error codes.
+   */
+  errorMappings?: Record<string, string> | null;
 }
 
 // State for pending transaction with user-settable parameters
@@ -196,10 +207,17 @@ export function InteractiveRenderView({
   onError,
   css,
   scopeClassName,
+  errorMappings,
 }: InteractiveRenderViewProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pendingUserParams, setPendingUserParams] = useState<PendingUserParams | null>(null);
   const [markdownEditors, setMarkdownEditors] = useState<MarkdownEditorInfo[]>([]);
+
+  // Preserve markdown editor values across html changes (e.g., from waterfall loading)
+  const editorValuesRef = useRef<Map<string, string>>(new Map());
+
+  // Preserve all form field values across loading state changes
+  const formValuesRef = useRef<Map<string, string>>(new Map());
 
   // Handle modal submission
   const handleParamSubmit = useCallback(
@@ -240,10 +258,15 @@ export function InteractiveRenderView({
       onTransactionComplete?.(result);
 
       if (!result.success && result.error) {
-        onError?.(result.error);
+        // Enrich error with custom message from mappings if available
+        const enrichedError: ParsedError = {
+          ...result.error,
+          userMessage: lookupErrorMessage(result.error, errorMappings ?? undefined),
+        };
+        onError?.(enrichedError);
       }
     },
-    [pendingUserParams, client, contractId, walletAddress, registryId, onTransactionStart, onTransactionComplete, onError]
+    [pendingUserParams, client, contractId, walletAddress, registryId, onTransactionStart, onTransactionComplete, onError, errorMappings]
   );
 
   const handleParamCancel = useCallback(() => {
@@ -268,9 +291,13 @@ export function InteractiveRenderView({
         return;
       }
 
-      // Prevent browser from handling the link
+      // Prevent browser from handling the link BEFORE any async operations
+      // This is critical to prevent navigation on any errors in async code
       event.preventDefault();
       event.stopPropagation();
+
+      // Wrap all async operations in try-catch to prevent silent failures
+      try {
 
       if (parsed.protocol === "render") {
         // Check if this is a cross-contract navigation (has alias or explicit contractId)
@@ -360,7 +387,12 @@ export function InteractiveRenderView({
         onTransactionComplete?.(result);
 
         if (!result.success && result.error) {
-          onError?.(result.error);
+          // Enrich error with custom message from mappings if available
+          const enrichedError: ParsedError = {
+            ...result.error,
+            userMessage: lookupErrorMessage(result.error, errorMappings ?? undefined),
+          };
+          onError?.(enrichedError);
         }
         return;
       }
@@ -430,7 +462,12 @@ export function InteractiveRenderView({
         onTransactionComplete?.(result);
 
         if (!result.success && result.error) {
-          onError?.(result.error);
+          // Enrich error with custom message from mappings if available
+          const enrichedError: ParsedError = {
+            ...result.error,
+            userMessage: lookupErrorMessage(result.error, errorMappings ?? undefined),
+          };
+          onError?.(enrichedError);
         } else if (result.success && redirectPath && onPathChange) {
           // Navigate to redirect path on success
           console.log("[soroban-render] Transaction successful, redirecting to:", redirectPath);
@@ -443,8 +480,14 @@ export function InteractiveRenderView({
         }
         return;
       }
+      } catch (err) {
+        // Log any errors but don't re-throw - we've already prevented default navigation
+        console.error("[soroban-render] Error handling link click:", err);
+        const message = err instanceof Error ? err.message : "An unexpected error occurred";
+        onError?.(message);
+      }
     },
-    [client, contractId, walletAddress, registryId, onPathChange, onContractNavigate, onTransactionStart, onTransactionComplete, onError, setPendingUserParams]
+    [client, contractId, walletAddress, registryId, onPathChange, onContractNavigate, onTransactionStart, onTransactionComplete, onError, errorMappings, setPendingUserParams]
   );
 
   useEffect(() => {
@@ -456,8 +499,52 @@ export function InteractiveRenderView({
     return () => {
       container.removeEventListener("click", handleClick, true);
     };
-    // Include html in dependencies so effect re-runs when content renders
-  }, [handleClick, html]);
+    // Include html and loading in dependencies so effect re-runs when content renders
+    // or when loading state changes (container is recreated after loading spinner)
+  }, [handleClick, html, loading]);
+
+  // Clear markdown editors when loading starts to prevent stale state from overwriting preserved values
+  useEffect(() => {
+    if (loading) {
+      setMarkdownEditors([]);
+    }
+  }, [loading]);
+
+  // Capture and restore form field values across loading state changes
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Restore any previously saved form values
+    const restoreFormValues = () => {
+      formValuesRef.current.forEach((value, name) => {
+        const element = container.querySelector(`[name="${name}"]`) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+        if (element && element.type !== "hidden") {
+          element.value = value;
+        }
+      });
+    };
+
+    // Capture form values on input/change events
+    const captureFormValue = (event: Event) => {
+      const target = event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      if (target.name && target.type !== "hidden") {
+        formValuesRef.current.set(target.name, target.value);
+      }
+    };
+
+    // Restore values after DOM is ready
+    restoreFormValues();
+
+    // Listen for changes to capture values
+    container.addEventListener("input", captureFormValue, true);
+    container.addEventListener("change", captureFormValue, true);
+
+    return () => {
+      container.removeEventListener("input", captureFormValue, true);
+      container.removeEventListener("change", captureFormValue, true);
+    };
+  }, [html, loading]);
 
   // Find and replace markdown textareas with rich editors
   useEffect(() => {
@@ -494,15 +581,16 @@ export function InteractiveRenderView({
       // Store original for cleanup
       originalTextareas.push({ ta, name: originalName });
 
-      // Get initial value - try multiple sources since innerHTML-created textareas
-      // may not have .value set correctly
-      const initialValue = ta.value || ta.defaultValue || ta.textContent || "";
+      // Get initial value - prefer preserved value from previous render, then try DOM sources
+      // This preserves user input across html changes (e.g., from waterfall loading)
+      const preservedValue = editorValuesRef.current.get(originalName);
+      const domValue = ta.value || ta.defaultValue || ta.textContent || "";
+      const initialValue = preservedValue ?? domValue;
 
       console.log("[soroban-render] Markdown textarea found:", {
         name: originalName,
-        value: ta.value,
-        defaultValue: ta.defaultValue,
-        textContent: ta.textContent,
+        preservedValue,
+        domValue,
         initialValue,
       });
 
@@ -512,23 +600,32 @@ export function InteractiveRenderView({
         placeholder: ta.placeholder || "",
         rows: ta.rows || 10,
         initialValue,
+        onValueChange: (value: string) => {
+          editorValuesRef.current.set(originalName, value);
+        },
       });
     });
 
     setMarkdownEditors(editorInfos);
 
-    // Cleanup on unmount or when html changes
+    // Cleanup on unmount or when html/loading changes
     return () => {
       editorInfos.forEach((info) => {
-        info.container.remove();
+        // Container may already be removed if loading state changed
+        if (info.container.parentNode) {
+          info.container.remove();
+        }
       });
       // Restore original textarea names (for graceful degradation)
+      // Only if they're still in the DOM
       originalTextareas.forEach(({ ta, name }) => {
-        ta.setAttribute("name", name);
-        ta.style.display = "";
+        if (ta.parentNode) {
+          ta.setAttribute("name", name);
+          ta.style.display = "";
+        }
       });
     };
-  }, [html]);
+  }, [html, loading]);
 
   if (loading) {
     if (loadingComponent) {
@@ -628,6 +725,7 @@ export function InteractiveRenderView({
             initialValue={editor.initialValue}
             placeholder={editor.placeholder}
             rows={editor.rows}
+            onChange={editor.onValueChange}
           />,
           editor.container
         )

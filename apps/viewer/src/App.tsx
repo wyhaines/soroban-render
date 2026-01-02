@@ -8,23 +8,30 @@ import {
   jsonStyles,
   Networks,
   resolveTargetContract,
+  isParsedError,
   type NetworkName,
   type SorobanClient,
   type TransactionResult,
+  type ParsedError,
 } from "@soroban-render/core";
 
 type Network = NetworkName | "custom";
 
-// Toast notification component
+// Toast notification component with optional expandable details
 interface ToastProps {
   message: string;
   type: "info" | "error" | "warning";
   onClose: () => void;
   autoClose?: number; // ms, 0 to disable
+  /** Optional technical details that can be expanded */
+  details?: string;
+  /** Optional error code to display */
+  errorCode?: number;
 }
 
-function Toast({ message, type, onClose, autoClose = 5000 }: ToastProps) {
+function Toast({ message, type, onClose, autoClose = 5000, details, errorCode }: ToastProps) {
   const [isVisible, setIsVisible] = useState(true);
+  const [showDetails, setShowDetails] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
@@ -40,42 +47,78 @@ function Toast({ message, type, onClose, autoClose = 5000 }: ToastProps) {
   }, [autoClose, onClose]);
 
   const bgColor = {
-    info: "bg-blue-50 border-blue-200",
-    error: "bg-red-50 border-red-200",
-    warning: "bg-yellow-50 border-yellow-200",
+    info: "bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800",
+    error: "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800",
+    warning: "bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800",
   }[type];
 
   const textColor = {
-    info: "text-blue-700",
-    error: "text-red-700",
-    warning: "text-yellow-700",
+    info: "text-blue-700 dark:text-blue-300",
+    error: "text-red-700 dark:text-red-300",
+    warning: "text-yellow-700 dark:text-yellow-300",
   }[type];
 
   const iconColor = {
-    info: "text-blue-400 hover:text-blue-600",
-    error: "text-red-400 hover:text-red-600",
-    warning: "text-yellow-400 hover:text-yellow-600",
+    info: "text-blue-400 hover:text-blue-600 dark:text-blue-500 dark:hover:text-blue-300",
+    error: "text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300",
+    warning: "text-yellow-400 hover:text-yellow-600 dark:text-yellow-500 dark:hover:text-yellow-300",
+  }[type];
+
+  const detailsBgColor = {
+    info: "bg-blue-100 dark:bg-blue-900",
+    error: "bg-red-100 dark:bg-red-900",
+    warning: "bg-yellow-100 dark:bg-yellow-900",
   }[type];
 
   return (
     <div
-      className={`${bgColor} border rounded-lg p-3 shadow-lg flex items-start gap-2 transition-all duration-300 ${
+      className={`${bgColor} border rounded-lg p-3 shadow-lg transition-all duration-300 ${
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
       }`}
     >
-      <p className={`${textColor} text-sm flex-1`}>{message}</p>
-      <button
-        onClick={() => {
-          setIsVisible(false);
-          setTimeout(onClose, 300);
-        }}
-        className={`${iconColor} transition-colors flex-shrink-0`}
-        aria-label="Dismiss"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <p className={`${textColor} text-sm`}>
+            {message}
+            {errorCode !== undefined && (
+              <span className="opacity-60 ml-1">(code {errorCode})</span>
+            )}
+          </p>
+          {details && (
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className={`${textColor} text-xs opacity-70 hover:opacity-100 mt-1 flex items-center gap-1`}
+            >
+              <svg
+                className={`w-3 h-3 transition-transform ${showDetails ? "rotate-90" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              {showDetails ? "Hide Details" : "Show Details"}
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => {
+            setIsVisible(false);
+            setTimeout(onClose, 300);
+          }}
+          className={`${iconColor} transition-colors flex-shrink-0`}
+          aria-label="Dismiss"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      {showDetails && details && (
+        <div className={`${detailsBgColor} mt-2 p-2 rounded text-xs font-mono ${textColor} opacity-80 break-all`}>
+          {details}
+        </div>
+      )}
     </div>
   );
 }
@@ -185,7 +228,7 @@ export default function App() {
   const [customRpcUrl, setCustomRpcUrl] = useState("");
   const [inputPath, setInputPath] = useState(preConfiguredPath);
   const [txPending, setTxPending] = useState(false);
-  const [txError, setTxError] = useState<string | null>(null);
+  const [txError, setTxError] = useState<ParsedError | string | null>(null);
   const [dismissedWalletError, setDismissedWalletError] = useState<string | null>(null);
   // Flag to indicate we need to resolve contract ref on first render
   const [needsContractResolution, setNeedsContractResolution] = useState(!!preConfiguredContractRef);
@@ -252,7 +295,7 @@ export default function App() {
     resolveContract();
   }, [needsContractResolution, navigatedContractRef, client, contractId, registryId]);
 
-  const { html, jsonDocument, format, loading, error, path, setPath, refetch, css, scopeClassName } = useRender(
+  const { html, jsonDocument, format, loading, error, path, setPath, refetch, css, scopeClassName, errorMappings } = useRender(
     client,
     effectiveContractId || null,
     { path: effectivePath || "/", viewer: wallet.address || undefined }
@@ -380,7 +423,7 @@ export default function App() {
     [refetch]
   );
 
-  const handleError = useCallback((err: string) => {
+  const handleError = useCallback((err: string | ParsedError) => {
     setTxError(err);
     setTxPending(false);
   }, []);
@@ -428,10 +471,12 @@ export default function App() {
             )}
             {txError && (
               <Toast
-                message={txError}
+                message={isParsedError(txError) ? txError.userMessage : txError}
                 type="error"
                 onClose={() => setTxError(null)}
                 autoClose={8000}
+                details={isParsedError(txError) ? txError.rawMessage : undefined}
+                errorCode={isParsedError(txError) ? txError.code : undefined}
               />
             )}
             {showWalletError && (
@@ -479,6 +524,7 @@ export default function App() {
               onError={handleError}
               css={css}
               scopeClassName={scopeClassName}
+              errorMappings={errorMappings}
             />
           )}
         </main>
@@ -702,10 +748,12 @@ export default function App() {
             )}
             {txError && (
               <Toast
-                message={txError}
+                message={isParsedError(txError) ? txError.userMessage : txError}
                 type="error"
                 onClose={() => setTxError(null)}
                 autoClose={8000}
+                details={isParsedError(txError) ? txError.rawMessage : undefined}
+                errorCode={isParsedError(txError) ? txError.code : undefined}
               />
             )}
             {showWalletError && (
@@ -753,6 +801,7 @@ export default function App() {
               onError={handleError}
               css={css}
               scopeClassName={scopeClassName}
+              errorMappings={errorMappings}
             />
           )}
 
