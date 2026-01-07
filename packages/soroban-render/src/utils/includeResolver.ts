@@ -6,6 +6,7 @@
  * - SELF keyword support for self-referential includes
  * - Support for render_* function convention
  * - Caching of resolved content (optional)
+ * - Noparse block protection for form field values
  */
 
 import { SorobanClient, callRender } from "./client";
@@ -15,6 +16,12 @@ import {
   createIncludeKey,
   IncludeTag,
 } from "../parsers/include";
+import {
+  extractNoparseBlocks,
+  restoreNoparseBlocks,
+  hasNoparseBlocks,
+  NoparseBlock,
+} from "../parsers/noparse";
 
 export interface CacheEntry {
   content: string;
@@ -32,6 +39,8 @@ export interface ResolveOptions {
   cache?: Map<string, CacheEntry>;
   /** Cache TTL in milliseconds (default: 30000 = 30s) */
   cacheTtl?: number;
+  /** Optional alias-to-contract-ID mappings for resolving friendly names */
+  aliases?: Record<string, string>;
 }
 
 export interface ResolveResult {
@@ -56,16 +65,28 @@ export async function resolveIncludes(
   const ancestors = options.ancestors ?? new Set<string>();
   const cache = options.cache ?? new Map<string, CacheEntry>();
   const cacheTtl = options.cacheTtl ?? DEFAULT_CACHE_TTL;
+  const aliases = options.aliases ?? {};
   const resolvedIncludes: string[] = [];
   let cycleDetected = false;
 
-  // Quick check if there are any includes
-  if (!hasIncludes(content)) {
-    return { content, cycleDetected: false, resolvedIncludes: [] };
+  // Extract noparse blocks to protect them from include resolution
+  let noparseBlocks: NoparseBlock[] = [];
+  let processableContent = content;
+  if (hasNoparseBlocks(content)) {
+    const extracted = extractNoparseBlocks(content);
+    processableContent = extracted.content;
+    noparseBlocks = extracted.blocks;
+  }
+
+  // Quick check if there are any includes (after noparse extraction)
+  if (!hasIncludes(processableContent)) {
+    // Restore noparse blocks and return
+    const finalContent = restoreNoparseBlocks(processableContent, noparseBlocks);
+    return { content: finalContent, cycleDetected: false, resolvedIncludes: [] };
   }
 
   // Parse includes
-  const parsed = parseIncludes(content);
+  const parsed = parseIncludes(processableContent);
 
   // Process includes in reverse order to maintain correct indices
   const sortedIncludes = [...parsed.includes].sort(
@@ -80,20 +101,24 @@ export async function resolveIncludes(
       options.viewer,
       ancestors,
       cache,
-      cacheTtl
+      cacheTtl,
+      aliases
     );
 
     if (result.cycleDetected) {
       cycleDetected = true;
       // Replace with empty string or a comment indicating cycle
-      content = replaceIncludeTag(content, include, "<!-- cycle detected -->");
+      processableContent = replaceIncludeTag(processableContent, include, "<!-- cycle detected -->");
     } else {
-      content = replaceIncludeTag(content, include, result.content);
+      processableContent = replaceIncludeTag(processableContent, include, result.content);
       resolvedIncludes.push(result.key);
     }
   }
 
-  return { content, cycleDetected, resolvedIncludes };
+  // Restore noparse blocks before returning
+  const finalContent = restoreNoparseBlocks(processableContent, noparseBlocks);
+
+  return { content: finalContent, cycleDetected, resolvedIncludes };
 }
 
 interface IncludeResult {
@@ -112,11 +137,17 @@ async function resolveInclude(
   viewer: string | undefined,
   ancestors: Set<string>,
   cache: Map<string, CacheEntry>,
-  cacheTtl: number
+  cacheTtl: number,
+  aliases: Record<string, string>
 ): Promise<IncludeResult> {
-  // Resolve SELF to current contract ID
-  const contractId =
-    include.contract === "SELF" ? currentContractId : include.contract;
+  // Resolve contract reference: SELF -> current, alias -> contract ID, or use as-is
+  let contractId: string;
+  if (include.contract === "SELF") {
+    contractId = currentContractId;
+  } else {
+    const aliasValue = aliases[include.contract];
+    contractId = aliasValue ?? include.contract;
+  }
 
   // Create key for cycle detection
   const key = createIncludeKey(contractId, include.func, include.path);
@@ -152,6 +183,7 @@ async function resolveInclude(
       ancestors: newAncestors,
       cache,
       cacheTtl,
+      aliases,
     });
 
     // Cache the result

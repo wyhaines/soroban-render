@@ -299,6 +299,8 @@ export function InteractiveRenderView({
       // Wrap all async operations in try-catch to prevent silent failures
       try {
 
+      console.log("[soroban-render] Link clicked, parseLink result:", parsed);
+
       if (parsed.protocol === "render") {
         // Check if this is a cross-contract navigation (has alias or explicit contractId)
         if (parsed.alias || parsed.contractId) {

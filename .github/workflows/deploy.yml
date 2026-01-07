@@ -79,6 +79,11 @@ jobs:
           cd contracts/chunked-example
           stellar contract build
 
+      - name: Build u256-vec-demo contract
+        run: |
+          cd contracts/u256-vec-demo
+          stellar contract build
+
       - name: Build homepage contract
         run: |
           cd contracts/homepage
@@ -146,6 +151,18 @@ jobs:
             --source "$STELLAR_SECRET_KEY")
           echo "contract_id=$CHUNKED_ID" >> $GITHUB_OUTPUT
           echo "Chunked-example contract deployed: $CHUNKED_ID"
+
+      - name: Deploy u256-vec-demo contract
+        id: deploy-u256-vec
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          U256_VEC_ID=$(stellar contract deploy \
+            --wasm contracts/u256-vec-demo/target/wasm32v1-none/release/soroban_render_u256_vec_demo.wasm \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY")
+          echo "contract_id=$U256_VEC_ID" >> $GITHUB_OUTPUT
+          echo "U256-vec-demo contract deployed: $U256_VEC_ID"
 
       - name: Deploy homepage contract
         id: deploy-homepage
@@ -248,6 +265,20 @@ jobs:
             --description "Demonstrates chunked content with progressive loading. First 5 comments load instantly, rest load in background." \
             --contract_id "${{ steps.deploy-chunked.outputs.contract_id }}" \
             --features "soroban-chonk storage, continuation markers, progressive rendering"
+
+      - name: Add Vec<U256> Tutorial demo to homepage
+        env:
+          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_SECRET_KEY }}
+        run: |
+          stellar contract invoke \
+            --id ${{ steps.deploy-homepage.outputs.contract_id }} \
+            --network testnet \
+            --source "$STELLAR_SECRET_KEY" \
+            -- add_demo \
+            --name "Vec<U256> Tutorial" \
+            --description "A micro-tutorial on working with Vec<U256> in Soroban. Learn iteration, indexing, transformation, and searching patterns." \
+            --contract_id "${{ steps.deploy-u256-vec.outputs.contract_id }}" \
+            --features "Vec patterns, U256 arithmetic, no_std collections, live code examples"
 
       # Build the viewer
       - name: Setup pnpm

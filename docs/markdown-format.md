@@ -401,6 +401,77 @@ pub fn get_chunk_meta(env: Env, collection: Symbol) -> Option<ChonkMeta> {
 ```
 
 
+## Contract Alias Definitions: `{{aliases}}`
+
+Define friendly alias names for contract IDs, allowing includes to use short names instead of 56-character contract addresses.
+
+```markdown
+{{aliases config=CCOBK... registry=CCDBT... theme=CBWU6...}}
+```
+
+**Alternative JSON format:**
+```markdown
+{{aliases {"config":"CCOBK...","registry":"CCDBT...","theme":"CBWU6..."}}}
+```
+
+The viewer extracts these mappings early in the rendering pipeline and uses them when resolving `{{include}}` tags.
+
+**With the SDK (BaseRegistry):**
+```rust
+use soroban_render_sdk::registry::BaseRegistry;
+
+// Emit all registered aliases automatically
+let aliases_tag = BaseRegistry::emit_aliases(&env);
+MarkdownBuilder::new(&env)
+    .raw(aliases_tag)  // {{aliases theme=CXYZ... content=CABC...}}
+    // ... rest of content
+```
+
+**Cross-contract pattern:**
+```rust
+// Registry exposes:
+pub fn render_aliases(env: Env) -> Bytes {
+    BaseRegistry::emit_aliases(&env)
+}
+
+// Other contracts fetch via cross-contract call:
+fn fetch_aliases(env: &Env) -> Bytes {
+    let registry: Address = /* get registry address */;
+    let args: Vec<Val> = Vec::new(env);
+    env.try_invoke_contract::<Bytes, soroban_sdk::Error>(
+        &registry,
+        &Symbol::new(env, "render_aliases"),
+        args,
+    ).ok().and_then(|r| r.ok()).unwrap_or(Bytes::new(env))
+}
+
+// In render function:
+let aliases = Self::fetch_aliases(env);
+MarkdownBuilder::new(env)
+    .raw(aliases)
+    // ... rest of content
+```
+
+**Manual approach (for custom alias logic):**
+```rust
+fn emit_aliases(env: &Env) -> Bytes {
+    let mut result = Bytes::from_slice(env, b"{{aliases ");
+    // Add each alias: name=CONTRACT_ID
+    result.append(&Bytes::from_slice(env, b"config="));
+    result.append(&config_contract_id_bytes);
+    result.append(&Bytes::from_slice(env, b" registry="));
+    result.append(&registry_contract_id_bytes);
+    result.append(&Bytes::from_slice(env, b"}}"));
+    result
+}
+```
+
+**Benefits:**
+- Users can write `{{include contract=config func="logo"}}` instead of `{{include contract=CCOBKFEZERN3SSZBFAZY5A6M2WPLVDLKPAWU7IEUQU35VMA6VKHXA62C func="logo"}}`
+- Centralized alias definitions in one place
+- Aliases are removed from rendered output (viewer extracts and removes the tag)
+
+
 ## Cross-Contract Includes
 
 Include UI components from other contracts:
@@ -411,6 +482,17 @@ Include UI components from other contracts:
 Your content here...
 
 {{include contract=CABC...XYZ func="footer"}}
+```
+
+**Using aliases** (requires `{{aliases}}` tag in content):
+```markdown
+{{include contract=config func="logo"}}
+{{include contract=theme func="footer"}}
+```
+
+**Special `SELF` keyword** (refers to current contract):
+```markdown
+{{include contract=SELF func="sidebar"}}
 ```
 
 **With the SDK:**
@@ -426,7 +508,7 @@ const THEME_ID: &str = "CABC...XYZ";
 ```
 
 **Parameters:**
-- `contract` - The contract ID to call
+- `contract` - The contract ID, alias name, or `SELF`
 - `func` - The render function name (e.g., "header" calls `render_header()`)
 
 The included contract must implement the corresponding function:
@@ -436,6 +518,42 @@ pub fn render_header(env: Env) -> Bytes {
     Bytes::from_slice(&env, b"# My Header\n\n---\n")
 }
 ```
+
+
+## Protecting Content from Resolution: `{{noparse}}`
+
+Content wrapped in `{{noparse}}...{{/noparse}}` blocks is preserved exactly as-is during include resolution. The noparse tags themselves are stripped after processing, leaving only the inner content.
+
+**Use Case:** Form field values containing `{{include ...}}` tags that should be displayed for editing rather than resolved.
+
+```markdown
+{{noparse}}{{include contract=config func="logo"}}{{/noparse}}
+```
+
+**Result:** The include tag is preserved as literal text:
+```
+{{include contract=config func="logo"}}
+```
+
+Without noparse, the viewer would attempt to resolve the include and replace it with the actual logo content (or an error message if resolution fails).
+
+**With the SDK:**
+```rust
+// Use the noparse variant for textarea values
+.textarea_markdown_with_value_noparse_string(
+    "footer_text",
+    3,
+    "Custom footer text",
+    &branding.footer_text
+)
+```
+
+The SDK method `textarea_markdown_with_value_noparse_string()` automatically wraps the value in noparse tags, ensuring that any special syntax in the value is displayed as-is in the editor rather than being resolved.
+
+**When to Use:**
+- Form fields that edit content containing `{{include ...}}` tags
+- Displaying raw template syntax for documentation
+- Any content that should bypass the viewer's tag resolution pipeline
 
 
 ## HTML Form Elements

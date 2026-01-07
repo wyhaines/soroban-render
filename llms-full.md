@@ -145,6 +145,63 @@ Waterfall loading - embed content from another path.
 
 VIEWER BEHAVIOR: Calls render() and embeds result.
 
+### {{noparse}}
+
+Protect content from include resolution.
+
+```
+{{noparse}}{{include contract=config func="logo"}}{{/noparse}}
+```
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| (none) | block | Content between tags is preserved as-is |
+
+VIEWER BEHAVIOR:
+1. Extract noparse blocks, replace with placeholders
+2. Resolve includes in remaining content
+3. Restore noparse content (tags stripped)
+
+USE CASES:
+- Form fields editing content with include tags
+- Displaying raw template syntax
+- Bypassing tag resolution pipeline
+
+SDK METHOD:
+```rust
+// Wraps textarea value in noparse tags
+.textarea_markdown_with_value_noparse_string("field", 3, "placeholder", &value)
+```
+
+### {{aliases}}
+
+Define friendly names for contract IDs used in includes.
+
+```
+{{aliases config=CCOBK... registry=CCDBT... theme=CBWU6...}}
+{{aliases {"config":"CCOBK...","registry":"CCDBT..."}}}
+```
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `name=CONTRACT_ID` | key=value | Alias mapping (key-value format) |
+| JSON object | object | Alias mappings (JSON format) |
+
+VIEWER BEHAVIOR:
+1. Extract aliases early in pipeline
+2. Remove tag from content
+3. Use mappings when resolving `{{include contract=alias ...}}`
+
+INCLUDE RESOLUTION:
+```
+{{include contract=config func="logo"}}
+→ Resolves "config" alias to "CCOBK..."
+→ Calls render_logo() on that contract
+```
+
+SPECIAL VALUES:
+- `SELF` - Refers to current contract (no alias needed)
+
 ---
 
 ## CONTRACT ALIASING
@@ -425,6 +482,52 @@ function buildPathWithParams(
 ): string;
 ```
 
+### Noparse Protection
+
+```typescript
+// Extract noparse blocks before include resolution
+function extractNoparseBlocks(content: string): ParsedNoparse;
+
+interface ParsedNoparse {
+  content: string;        // Content with placeholders
+  blocks: NoparseBlock[]; // Extracted blocks
+}
+
+interface NoparseBlock {
+  original: string;       // Full match including tags
+  innerContent: string;   // Content between tags
+  placeholderId: string;  // Placeholder in processed content
+}
+
+// Restore blocks after resolution (strips tags)
+function restoreNoparseBlocks(content: string, blocks: NoparseBlock[]): string;
+
+// Quick check
+function hasNoparseBlocks(content: string): boolean;
+
+// Wrap content in noparse tags
+function wrapNoparse(content: string): string;
+```
+
+### Alias Parsing
+
+```typescript
+// Extract alias definitions from content
+function parseAliases(content: string): ParsedAliases;
+
+interface ParsedAliases {
+  content: string;                  // Content with aliases tag removed
+  aliases: Record<string, string>;  // alias -> contractId mapping
+  aliasTags: AliasTag[];            // Raw tag objects
+}
+
+// Quick check
+function hasAliasTags(content: string): boolean;
+
+// Resolve alias to contract ID (returns original if not found)
+function resolveAlias(alias: string, aliases: Record<string, string>): string;
+```
+
 ---
 
 ## PARSERS
@@ -440,10 +543,12 @@ async function parseMarkdown(content: string): Promise<string>;
 EXTENSIONS:
 - `> [!TIP]` / `> [!NOTE]` / `> [!WARNING]` / `> [!INFO]` / `> [!CAUTION]` → Alert boxes
 - `:::columns ... ||| ... :::` → Multi-column layout
-- `{{include ...}}` → Include directive
+- `{{include ...}}` → Include directive (supports aliases, SELF)
+- `{{aliases ...}}` → Define alias-to-contract-ID mappings
 - `{{chunk ...}}` → Progressive loading placeholder
 - `{{continue ...}}` → Continuation marker
 - `{{render ...}}` → Waterfall loading
+- `{{noparse}}...{{/noparse}}` → Protect content from resolution
 
 ### parseJsonUI
 
@@ -554,6 +659,41 @@ BaseRegistry::init(&env, &admin, contracts);
 let addr = BaseRegistry::get_by_alias(&env, symbol_short!("content"));
 ```
 
+### emit_aliases
+
+Generate `{{aliases ...}}` tag from all registered contracts for include resolution.
+
+| Method | Output |
+|--------|--------|
+| `BaseRegistry::emit_aliases(&env)` | `{{aliases alias1=CXYZ... alias2=CABC...}}` |
+
+```rust
+// In render function:
+let aliases = BaseRegistry::emit_aliases(&env);
+MarkdownBuilder::new(&env)
+    .raw(aliases)
+    // ...
+```
+
+Cross-contract pattern:
+
+```rust
+// Registry exposes:
+pub fn render_aliases(env: Env) -> Bytes {
+    BaseRegistry::emit_aliases(&env)
+}
+
+// Other contracts fetch:
+fn fetch_aliases(env: &Env) -> Bytes {
+    let args: Vec<Val> = Vec::new(env);
+    env.try_invoke_contract::<Bytes, soroban_sdk::Error>(
+        &registry,
+        &Symbol::new(env, "render_aliases"),
+        args,
+    ).ok().and_then(|r| r.ok()).unwrap_or(Bytes::new(env))
+}
+```
+
 ### Router Pattern
 
 ```rust
@@ -586,6 +726,8 @@ StyleBuilder::new(&env)
 | `string_to_bytes(&env, &s)` | Convert `soroban_sdk::String` to `Bytes` |
 | `escape_json_string(&env, &s)` | Escape string for JSON inclusion |
 | `escape_json_bytes(&env, bytes)` | Escape byte slice for JSON |
+| `address_to_bytes(&env, &addr)` | Convert Address to 56-char contract ID string |
+| `symbol_to_bytes(&env, &sym)` | Convert Symbol to string (short symbols ≤9 chars) |
 
 Max string size: 16KB. For larger content, use soroban-chonk with progressive loading.
 

@@ -59,6 +59,8 @@ export async function callRender(
 ): Promise<string> {
   const contract = new Contract(contractId);
 
+  console.log("[soroban-render] callRender invoked with path:", options.path);
+
   const pathArg = options.path
     ? xdr.ScVal.scvString(options.path)
     : xdr.ScVal.scvVoid();
@@ -102,15 +104,20 @@ export async function callRender(
 
   if (retval.switch().name === "scvBytes") {
     const bytes = retval.bytes();
-    return new TextDecoder().decode(bytes);
+    const content = new TextDecoder().decode(bytes);
+    console.log("[soroban-render] callRender returned (first 500 chars):", content.slice(0, 500));
+    return content;
   }
 
   const native = scValToNative(retval);
   if (native instanceof Uint8Array) {
-    return new TextDecoder().decode(native);
+    const content = new TextDecoder().decode(native);
+    console.log("[soroban-render] callRender returned (first 500 chars):", content.slice(0, 500));
+    return content;
   }
 
   if (typeof native === "string") {
+    console.log("[soroban-render] callRender returned (first 500 chars):", native.slice(0, 500));
     return native;
   }
 

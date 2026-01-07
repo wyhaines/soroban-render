@@ -317,6 +317,7 @@ export default function App() {
 
   const handlePathChange = useCallback(
     (newPath: string) => {
+      console.log("[viewer] handlePathChange called with newPath:", newPath);
       // DON'T clear cross-contract navigation - maintain context for internal links
       // If we're currently viewing a cross-contract target, internal links should
       // stay on that contract

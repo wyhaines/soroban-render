@@ -199,3 +199,20 @@ export {
   type ErrorTag,
   type ParsedErrors,
 } from "./parsers/errors";
+
+export {
+  parseAliases,
+  hasAliasTags,
+  resolveAlias,
+  type AliasTag,
+  type ParsedAliases,
+} from "./parsers/aliases";
+
+export {
+  extractNoparseBlocks,
+  restoreNoparseBlocks,
+  hasNoparseBlocks,
+  wrapNoparse,
+  type NoparseBlock,
+  type ParsedNoparse,
+} from "./parsers/noparse";

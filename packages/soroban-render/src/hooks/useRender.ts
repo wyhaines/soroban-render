@@ -14,6 +14,7 @@ import { ProgressiveLoader } from "../utils/progressiveLoader";
 import { loadRenderContinuations, hasRenderContinuations } from "../utils/renderContinuation";
 import { parseMeta, applyMetaToDocument } from "../parsers/meta";
 import { parseErrors } from "../parsers/errors";
+import { parseAliases } from "../parsers/aliases";
 
 export interface UseRenderResult {
   html: string | null;
@@ -149,6 +150,9 @@ export function useRender(
   // Store progressive tags for chunk loading
   const progressiveTagsRef = useRef<ProgressiveTag[]>([]);
 
+  // Store aliases for chunk callbacks (parsed from {{aliases ...}} tags)
+  const aliasesRef = useRef<Record<string, string>>({});
+
   useEffect(() => {
     setCurrentPath(initialPath);
   }, [initialPath]);
@@ -167,8 +171,16 @@ export function useRender(
     setLoading(true);
     setError(null);
 
+    console.log("[soroban-render] useRender fetchRender called with currentPath:", currentPath);
+
     try {
       let content = await callRender(client, contractId, { path: currentPath, viewer });
+
+      // Parse aliases early (before include resolution needs them)
+      const aliasesResult = parseAliases(content);
+      content = aliasesResult.content;
+      const aliases = aliasesResult.aliases;
+      aliasesRef.current = aliases;
 
       // Resolve includes if enabled
       if (shouldResolveIncludes) {
@@ -177,6 +189,7 @@ export function useRender(
           viewer,
           cache: includeCacheRef.current,
           cacheTtl: includeCacheTtl,
+          aliases,
         });
         content = resolved.content;
       }
@@ -264,8 +277,21 @@ export function useRender(
               // Skip empty chunks
               if (!chunkContent) return;
 
+              // Resolve includes in chunk content before parsing markdown
+              let processedChunk = chunkContent;
+              if (shouldResolveIncludes) {
+                const resolved = await resolveIncludes(client, chunkContent, {
+                  contractId,
+                  viewer,
+                  cache: includeCacheRef.current,
+                  cacheTtl: includeCacheTtl,
+                  aliases: aliasesRef.current,
+                });
+                processedChunk = resolved.content;
+              }
+
               // Parse the chunk as markdown
-              const chunkHtml = await parseMarkdown(chunkContent);
+              const chunkHtml = await parseMarkdown(processedChunk);
 
               // Check if this belongs to a continuation tag
               let belongsToContinuation = false;
@@ -356,7 +382,18 @@ export function useRender(
                     const parsed = parseProgressiveTags(rawContent);
                     processedContent = parsed.content;
                   }
-                  // 2. Parse markdown to HTML
+                  // 2. Resolve includes before parsing markdown
+                  if (shouldResolveIncludes) {
+                    const resolved = await resolveIncludes(client, processedContent, {
+                      contractId,
+                      viewer,
+                      cache: includeCacheRef.current,
+                      cacheTtl: includeCacheTtl,
+                      aliases: aliasesRef.current,
+                    });
+                    processedContent = resolved.content;
+                  }
+                  // 3. Parse markdown to HTML
                   const parsedHtml = await parseMarkdown(processedContent);
                   return parsedHtml;
                 },

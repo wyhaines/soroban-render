@@ -474,6 +474,54 @@ interface UseProgressiveRenderResult {
 
 These functions handle `{{include}}` directives that pull content from other contracts. The `useRender` hook resolves includes automatically when `resolveIncludes: true` is set.
 
+### Alias Definitions
+
+Contracts can emit `{{aliases}}` tags to define friendly names for contract IDs. The viewer extracts these early and uses them when resolving includes.
+
+#### parseAliases
+
+Extracts alias definitions from content.
+
+```typescript
+function parseAliases(content: string): ParsedAliases;
+
+interface ParsedAliases {
+  content: string;                    // Content with aliases tag removed
+  aliases: Record<string, string>;    // alias -> contractId mapping
+  aliasTags: AliasTag[];              // Raw tag objects
+}
+
+interface AliasTag {
+  original: string;                   // Full matched string
+  startIndex: number;
+  endIndex: number;
+  mappings: Record<string, string>;   // Alias mappings from this tag
+}
+```
+
+#### hasAliasTags
+
+Quick check for alias definition tags.
+
+```typescript
+function hasAliasTags(content: string): boolean;
+```
+
+#### resolveAlias
+
+Resolve an alias to its contract ID.
+
+```typescript
+function resolveAlias(alias: string, aliases: Record<string, string>): string;
+// Returns the contract ID if found, otherwise returns the original alias
+```
+
+**Supported Formats:**
+```markdown
+{{aliases config=CCOBK... registry=CCDBT...}}
+{{aliases {"config":"CCOBK...","registry":"CCDBT..."}}}
+```
+
 ### parseIncludes
 
 Finds include tags in content.
@@ -534,6 +582,67 @@ function createIncludeResolver(
   client: SorobanClient
 ): IncludeResolver;
 ```
+
+### Noparse Blocks
+
+Content wrapped in `{{noparse}}...{{/noparse}}` is protected from include resolution. This is useful for form fields that contain include tags which should be displayed for editing rather than resolved.
+
+#### extractNoparseBlocks
+
+Extracts noparse blocks and replaces them with placeholders.
+
+```typescript
+function extractNoparseBlocks(content: string): ParsedNoparse;
+
+interface ParsedNoparse {
+  content: string;        // Content with noparse blocks replaced by placeholders
+  blocks: NoparseBlock[]; // The extracted blocks
+}
+
+interface NoparseBlock {
+  original: string;       // Full match including tags
+  startIndex: number;
+  endIndex: number;
+  innerContent: string;   // Content between the noparse tags
+  placeholderId: string;  // Placeholder used in processed content
+}
+```
+
+#### restoreNoparseBlocks
+
+Restores noparse blocks by replacing placeholders with inner content (tags stripped).
+
+```typescript
+function restoreNoparseBlocks(content: string, blocks: NoparseBlock[]): string;
+```
+
+#### hasNoparseBlocks
+
+Quick check for noparse blocks.
+
+```typescript
+function hasNoparseBlocks(content: string): boolean;
+```
+
+#### wrapNoparse
+
+Utility to wrap content in noparse tags.
+
+```typescript
+function wrapNoparse(content: string): string;
+// wrapNoparse("{{include ...}}") → "{{noparse}}{{include ...}}{{/noparse}}"
+```
+
+**Example:**
+```typescript
+// Before include resolution
+const extracted = extractNoparseBlocks(content);
+// ... resolve includes on extracted.content ...
+// After include resolution
+const final = restoreNoparseBlocks(resolvedContent, extracted.blocks);
+```
+
+The `useRender` hook handles noparse blocks automatically during include resolution.
 
 
 ## Link Parser
