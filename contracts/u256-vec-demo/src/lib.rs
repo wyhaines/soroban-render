@@ -260,13 +260,13 @@ impl U256VecDemo {
         // Summary
         // =====================================================================
         md = md
-            .h2("Key Takeaways")
+            .h2("Summary")
             .list_item("Vec::new(&env) - always needs the environment")
             .list_item("push_back(val) - add elements")
             .list_item("get(i) returns Option<T> - no panicking indexing")
             .list_item("iter() - the main way to process elements")
             .list_item("No map, filter, collect - use manual loops")
-            .list_item("Cannot convert to &[T] - data lives in host, not WASM memory")
+            .list_item("Cannot convert to &[T] - data lives in host, not WASM memory, so data format can't support direct `as_slice()` operation")
             .newline()
             .hr()
             .paragraph("This page is a live Soroban contract demonstrating these patterns.");
