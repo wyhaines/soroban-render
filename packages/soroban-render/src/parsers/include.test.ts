@@ -4,6 +4,7 @@ import {
   replaceInclude,
   hasIncludes,
   createIncludeKey,
+  hasCustomParams,
 } from "./include";
 
 describe("parseIncludes", () => {
@@ -183,21 +184,147 @@ describe("hasIncludes", () => {
 describe("createIncludeKey", () => {
   it("should create key with all parts", () => {
     const key = createIncludeKey("CABC123", "header", "/path");
-    expect(key).toBe("CABC123:header|/path");
+    expect(key).toBe("CABC123:header|/path|");
   });
 
   it("should create key without func", () => {
     const key = createIncludeKey("CABC123", undefined, "/path");
-    expect(key).toBe("CABC123:|/path");
+    expect(key).toBe("CABC123:|/path|");
   });
 
   it("should create key without path", () => {
     const key = createIncludeKey("CABC123", "header");
-    expect(key).toBe("CABC123:header|");
+    expect(key).toBe("CABC123:header||");
   });
 
   it("should create key with only contract", () => {
     const key = createIncludeKey("CABC123");
-    expect(key).toBe("CABC123:|");
+    expect(key).toBe("CABC123:||");
+  });
+
+  it("should create key with params", () => {
+    const key = createIncludeKey("CABC123", "nav_include", undefined, {
+      viewer: true,
+      return_path: "@main:/b/1",
+    });
+    // Params are sorted alphabetically
+    expect(key).toBe("CABC123:nav_include||return_path=@main:/b/1,viewer");
+  });
+
+  it("should create consistent keys regardless of param order", () => {
+    const key1 = createIncludeKey("CABC123", "func", undefined, {
+      b_param: "second",
+      a_param: "first",
+    });
+    const key2 = createIncludeKey("CABC123", "func", undefined, {
+      a_param: "first",
+      b_param: "second",
+    });
+    expect(key1).toBe(key2);
+  });
+});
+
+describe("parseIncludes - parameterized mode", () => {
+  it("should parse flag attributes (no value)", () => {
+    const content = '{{include contract=@main func="nav_include" viewer}}';
+    const result = parseIncludes(content);
+
+    expect(result.includes).toHaveLength(1);
+    expect(result.includes[0].contract).toBe("@main");
+    expect(result.includes[0].func).toBe("nav_include");
+    expect(result.includes[0].params).toEqual({ viewer: true });
+  });
+
+  it("should parse named parameters with values", () => {
+    const content =
+      '{{include contract=@main func="nav_include" return_path="@main:/b/1"}}';
+    const result = parseIncludes(content);
+
+    expect(result.includes).toHaveLength(1);
+    expect(result.includes[0].params).toEqual({ return_path: "@main:/b/1" });
+  });
+
+  it("should parse mixed flags and named parameters", () => {
+    const content =
+      '{{include contract=@main func="render_nav_include" viewer return_path="@main:/b/1"}}';
+    const result = parseIncludes(content);
+
+    expect(result.includes).toHaveLength(1);
+    const include = result.includes[0];
+    expect(include.contract).toBe("@main");
+    expect(include.func).toBe("render_nav_include");
+    expect(include.params).toEqual({
+      viewer: true,
+      return_path: "@main:/b/1",
+    });
+  });
+
+  it("should handle params with alias references", () => {
+    const content =
+      '{{include contract=@main func="widget" board_link="@boards:/b/5"}}';
+    const result = parseIncludes(content);
+
+    expect(result.includes).toHaveLength(1);
+    expect(result.includes[0].params).toEqual({ board_link: "@boards:/b/5" });
+  });
+
+  it("should separate standard attrs from params", () => {
+    const content =
+      '{{include contract=CABC123 func="header" path="/home" viewer custom="value"}}';
+    const result = parseIncludes(content);
+
+    expect(result.includes).toHaveLength(1);
+    const include = result.includes[0];
+    // Standard attrs
+    expect(include.contract).toBe("CABC123");
+    expect(include.func).toBe("header");
+    expect(include.path).toBe("/home");
+    // Custom params
+    expect(include.params).toEqual({ viewer: true, custom: "value" });
+  });
+
+  it("should have empty params for legacy includes", () => {
+    const content = '{{include contract=CABC123 func="footer"}}';
+    const result = parseIncludes(content);
+
+    expect(result.includes).toHaveLength(1);
+    expect(result.includes[0].params).toEqual({});
+  });
+
+  it("should handle multiple params", () => {
+    const content =
+      '{{include contract=@main func="complex" viewer page_id="5" offset="10" include_hidden}}';
+    const result = parseIncludes(content);
+
+    expect(result.includes).toHaveLength(1);
+    expect(result.includes[0].params).toEqual({
+      viewer: true,
+      page_id: "5",
+      offset: "10",
+      include_hidden: true,
+    });
+  });
+});
+
+describe("hasCustomParams", () => {
+  it("should return true when params exist", () => {
+    const content = '{{include contract=@main func="nav" viewer}}';
+    const result = parseIncludes(content);
+
+    expect(hasCustomParams(result.includes[0])).toBe(true);
+  });
+
+  it("should return false when no params", () => {
+    const content = '{{include contract=@main func="nav"}}';
+    const result = parseIncludes(content);
+
+    expect(hasCustomParams(result.includes[0])).toBe(false);
+  });
+
+  it("should return true for named param", () => {
+    const content = '{{include contract=ABC custom="value"}}';
+    const result = parseIncludes(content);
+
+    expect(hasCustomParams(result.includes[0])).toBe(true);
   });
 });

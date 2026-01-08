@@ -193,7 +193,7 @@ describe("resolveIncludes", () => {
 
     const cache = new Map<string, CacheEntry>();
     // Pre-populate cache with expired entry
-    cache.set("A:|", {
+    cache.set("A:||", {
       content: "OLD CONTENT",
       timestamp: Date.now() - 60000, // 60 seconds ago
     });
@@ -214,7 +214,7 @@ describe("resolveIncludes", () => {
 
     const cache = new Map<string, CacheEntry>();
     // Pre-populate cache with fresh entry
-    cache.set("A:|", {
+    cache.set("A:||", {
       content: "CACHED CONTENT",
       timestamp: Date.now() - 5000, // 5 seconds ago
     });

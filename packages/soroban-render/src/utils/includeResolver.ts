@@ -1,19 +1,48 @@
 /**
  * Include resolver for recursively resolving {{include ...}} tags.
  *
- * Features:
+ * ## Features
+ *
  * - Cycle detection using ancestor chain tracking
  * - SELF keyword support for self-referential includes
+ * - @alias resolution (e.g., @main → contract ID from aliases map)
  * - Support for render_* function convention
+ * - Parameterized includes with custom function signatures
  * - Caching of resolved content (optional)
  * - Noparse block protection for form field values
+ *
+ * ## Resolution Modes
+ *
+ * The resolver automatically selects between two modes:
+ *
+ * ### Legacy Mode
+ * - Used when: No custom params AND func does not end with "_include"
+ * - Calls contract with: render_{func}(path, viewer)
+ * - Suitable for existing render functions that expect standard arguments
+ *
+ * ### Parameterized Mode
+ * - Used when: Has custom params OR func ends with "_include"
+ * - Calls contract with: render_{func}(...params)
+ * - Arguments built from params based on type inference
+ * - Parameter ordering: viewer first (if present), then alphabetical
+ *
+ * ## Naming Convention
+ *
+ * Functions designed for parameterized includes should follow the naming
+ * convention: render_{name}_include (e.g., render_nav_include, render_footer_include)
+ *
+ * This "_include" suffix signals to the resolver that the function has a
+ * custom signature and should not receive default (path, viewer) arguments.
+ *
+ * @see ../parsers/include.ts for full syntax documentation
  */
 
-import { SorobanClient, callRender } from "./client";
+import { SorobanClient, callRender, callRenderParameterized } from "./client";
 import {
   parseIncludes,
   hasIncludes,
   createIncludeKey,
+  hasCustomParams,
   IncludeTag,
 } from "../parsers/include";
 import {
@@ -140,17 +169,36 @@ async function resolveInclude(
   cacheTtl: number,
   aliases: Record<string, string>
 ): Promise<IncludeResult> {
-  // Resolve contract reference: SELF -> current, alias -> contract ID, or use as-is
+  // Resolve contract reference: SELF -> current, @alias -> contract ID, or use as-is
   let contractId: string;
   if (include.contract === "SELF") {
     contractId = currentContractId;
+  } else if (include.contract.startsWith("@")) {
+    // Alias reference (e.g., @main) - strip @ and look up in aliases
+    const aliasName = include.contract.slice(1);
+    const aliasValue = aliases[aliasName];
+    // Use resolved alias or fall back to original (will fail with clear error)
+    contractId = aliasValue ?? include.contract;
   } else {
+    // Direct contract ID or alias without @ prefix
     const aliasValue = aliases[include.contract];
     contractId = aliasValue ?? include.contract;
   }
 
-  // Create key for cycle detection
-  const key = createIncludeKey(contractId, include.func, include.path);
+  // Use parameterized mode if:
+  // 1. Include has custom params (viewer, return_path, etc.), OR
+  // 2. Function name ends with "_include" (convention for include-specific functions with custom signatures)
+  // Otherwise use legacy mode with (path, viewer) arguments
+  const funcEndsWithInclude = include.func?.endsWith("_include") ?? false;
+  const isParameterized = hasCustomParams(include) || funcEndsWithInclude;
+
+  // Create key for cycle detection (includes params for uniqueness)
+  const key = createIncludeKey(
+    contractId,
+    include.func,
+    include.path,
+    isParameterized ? include.params : undefined
+  );
 
   // Check for cycle
   if (ancestors.has(key)) {
@@ -169,12 +217,24 @@ async function resolveInclude(
   newAncestors.add(key);
 
   try {
-    // Fetch content from contract
-    const rawContent = await callRender(client, contractId, {
-      path: include.path,
-      viewer,
-      functionName: include.func,
-    });
+    let rawContent: string;
+
+    if (isParameterized) {
+      // Parameterized mode: use callRenderParameterized with params
+      rawContent = await callRenderParameterized(client, contractId, {
+        functionName: include.func,
+        params: include.params,
+        viewer,
+        aliases,
+      });
+    } else {
+      // Legacy mode: use callRender with path/viewer/functionName
+      rawContent = await callRender(client, contractId, {
+        path: include.path,
+        viewer,
+        functionName: include.func,
+      });
+    }
 
     // Recursively resolve any nested includes
     const resolved = await resolveIncludes(client, rawContent, {
