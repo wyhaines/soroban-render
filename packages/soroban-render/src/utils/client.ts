@@ -59,7 +59,7 @@ export async function callRender(
 ): Promise<string> {
   const contract = new Contract(contractId);
 
-  console.log("[soroban-render] callRender invoked with path:", options.path);
+  console.log("[soroban-render] callRender invoked with path:", options.path, "functionName:", options.functionName);
 
   const pathArg = options.path
     ? xdr.ScVal.scvString(options.path)
@@ -94,15 +94,18 @@ export async function callRender(
   const simResult = await client.server.simulateTransaction(tx);
 
   if (rpc.Api.isSimulationError(simResult)) {
+    console.error("[soroban-render] Simulation error for", methodName, ":", simResult.error);
     throw new Error(`Simulation failed: ${simResult.error}`);
   }
 
   if (!rpc.Api.isSimulationSuccess(simResult)) {
+    console.error("[soroban-render] Simulation not successful for", methodName);
     throw new Error("Simulation did not succeed");
   }
 
   const result = simResult.result;
   if (!result) {
+    console.error("[soroban-render] No result from simulation for", methodName);
     throw new Error("No result from simulation");
   }
 

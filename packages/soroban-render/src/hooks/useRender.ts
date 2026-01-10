@@ -195,7 +195,9 @@ export function useRender(
       }
 
       // Resolve styles if enabled
+      console.log("[soroban-render] shouldResolveStyles =", shouldResolveStyles);
       if (shouldResolveStyles) {
+        console.log("[soroban-render] Calling resolveStyles for contract:", contractId);
         const styleResult = await resolveStyles(client, content, {
           contractId,
           viewer,
@@ -205,6 +207,7 @@ export function useRender(
           scopeStyles,
         });
         content = styleResult.content;
+        console.log("[soroban-render] Style resolution complete. CSS length:", styleResult.css?.length ?? 0);
         setCss(styleResult.css || null);
         setScopeClassName(styleResult.scopeClassName);
       } else {

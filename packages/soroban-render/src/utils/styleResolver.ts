@@ -84,6 +84,7 @@ export async function resolveStyles(
   content: string,
   options: StyleResolveOptions
 ): Promise<StyleResolveResult> {
+  console.log("[soroban-render] resolveStyles called for contract:", options.contractId);
   const cache = options.cache ?? new Map<string, StyleCacheEntry>();
   const cacheTtl = options.cacheTtl ?? DEFAULT_CACHE_TTL;
   const shouldScope = options.scopeStyles ?? true;
@@ -193,6 +194,7 @@ async function fetchContractStyles(
   cache: Map<string, StyleCacheEntry>,
   cacheTtl: number
 ): Promise<string | null> {
+  console.log("[soroban-render] fetchContractStyles called for:", contractId, "func:", func);
   const cacheKey = createStyleKey(contractId, func);
 
   // Check cache
@@ -208,13 +210,15 @@ async function fetchContractStyles(
     const functionName = func ? `styles_${func}` : "styles";
 
     const css = await callRender(client, contractId, { functionName });
+    console.log("[soroban-render] fetchContractStyles got CSS length:", css?.length ?? 0);
 
     // Cache the result
     cache.set(cacheKey, { css, timestamp: now });
 
     return css;
-  } catch {
+  } catch (err) {
     // Contract may not have a render_styles function - that's OK
+    console.error("[soroban-render] fetchContractStyles error for", contractId, ":", err);
     return null;
   }
 }
