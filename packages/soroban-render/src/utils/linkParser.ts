@@ -229,19 +229,14 @@ export function collectFormInputs(
 
   const elements = searchContainer.querySelectorAll("input, select, textarea");
 
-  console.log("[soroban-render] collectFormInputs: found", elements.length, "form elements in", formBoundary ? "form boundary" : "container");
-
   for (const element of elements) {
     const name = element.getAttribute("name");
-    const type = element.getAttribute("type");
 
     if (beforeElement && !comesBefore(element, beforeElement)) {
-      console.log("[soroban-render] Skipping element (after link):", { name, type });
       continue;
     }
 
     if (!name) {
-      console.log("[soroban-render] Skipping element (no name):", { type, element: element.outerHTML.slice(0, 100) });
       continue;
     }
 
@@ -252,13 +247,11 @@ export function collectFormInputs(
         }
       } else {
         inputs[name] = element.value;
-        console.log("[soroban-render] Collected input:", { name, type: element.type, value: element.value });
       }
     } else if (element instanceof HTMLSelectElement) {
       inputs[name] = element.value;
     } else if (element instanceof HTMLTextAreaElement) {
       inputs[name] = element.value;
-      console.log("[soroban-render] Collected textarea:", { name, value: element.value.slice(0, 50) + "..." });
     }
   }
 

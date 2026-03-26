@@ -17,8 +17,8 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "clean": "pnpm -r clean",
-    "contract:build": "cd contracts/todo && cargo build --release --target wasm32-unknown-unknown",
-    "contract:deploy": "stellar contract deploy --wasm contracts/todo/target/wasm32-unknown-unknown/release/soroban_render_todo.wasm --source alice --network local",
+    "contract:build": "cargo build --workspace --release --target wasm32v1-none",
+    "contract:deploy": "stellar contract deploy --wasm target/wasm32v1-none/release/soroban_render_todo.wasm --source alice --network local",
     "docker:start": "docker compose up -d",
     "docker:stop": "docker compose down"
   },

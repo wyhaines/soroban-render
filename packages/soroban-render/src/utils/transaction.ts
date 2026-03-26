@@ -22,53 +22,76 @@ export interface TransactionResult {
   error?: ParsedError;
 }
 
-function convertArgToScVal(value: unknown, key?: string): xdr.ScVal {
-  if (typeof value === "string") {
-    // Check for Stellar address (starts with G, 56 chars)
-    if (value.startsWith("G") && value.length === 56) {
-      return nativeToScVal(value, { type: "address" });
-    }
+// Field name patterns for type inference
+const ID_FIELD_PATTERN = /_id$/i;
+const U32_FIELD_PATTERN = /^(depth|count|index|limit|offset)$/i;
+const SYMBOL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const INTEGER_PATTERN = /^[0-9]+$/;
 
-    // For form fields that look like IDs (e.g., entity_id, item_id, record_id),
-    // convert to u64 to match typical Soroban contract signatures
-    const isIdField = key && /_id$/i.test(key);
-    const isPureInteger = /^[0-9]+$/.test(value);
+function isValidSymbol(value: string): boolean {
+  return value.length <= 32 && SYMBOL_PATTERN.test(value);
+}
 
-    if (isIdField && isPureInteger) {
-      return nativeToScVal(BigInt(value), { type: "u64" });
-    }
+function isStellarAddress(value: string): boolean {
+  return value.startsWith("G") && value.length === 56;
+}
 
-    // Handle known numeric fields that should be u32
-    const isU32Field = key && /^(depth|count|index|limit|offset)$/i.test(key);
-    if (isU32Field && isPureInteger) {
-      return nativeToScVal(parseInt(value, 10), { type: "u32" });
-    }
-
-    // Convert "field" parameter to Symbol (used for field names in profile, etc.)
-    // Symbols are short identifiers (up to 32 chars, alphanumeric + underscore)
-    if (key === "field" && value.length <= 32 && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) {
-      return xdr.ScVal.scvSymbol(value);
-    }
-
-    return xdr.ScVal.scvString(value);
+function convertStringToScVal(value: string, key?: string): xdr.ScVal {
+  // Check for Stellar address (starts with G, 56 chars)
+  if (isStellarAddress(value)) {
+    return nativeToScVal(value, { type: "address" });
   }
-  if (typeof value === "number") {
-    if (Number.isInteger(value)) {
-      // Use u32 for small positive integers (common for IDs)
-      // Use i128 for larger numbers
-      if (value >= 0 && value <= 0xFFFFFFFF) {
-        return nativeToScVal(value, { type: "u32" });
-      }
-      return nativeToScVal(value, { type: "i128" });
-    }
+
+  const isPureInteger = INTEGER_PATTERN.test(value);
+
+  // ID fields (e.g., entity_id, item_id) -> u64
+  if (key && ID_FIELD_PATTERN.test(key) && isPureInteger) {
+    return nativeToScVal(BigInt(value), { type: "u64" });
+  }
+
+  // Known numeric fields -> u32
+  if (key && U32_FIELD_PATTERN.test(key) && isPureInteger) {
+    return nativeToScVal(parseInt(value, 10), { type: "u32" });
+  }
+
+  // "field" parameter with valid symbol format -> Symbol
+  if (key === "field" && isValidSymbol(value)) {
+    return xdr.ScVal.scvSymbol(value);
+  }
+
+  return xdr.ScVal.scvString(value);
+}
+
+function convertNumberToScVal(value: number): xdr.ScVal {
+  if (!Number.isInteger(value)) {
     return nativeToScVal(value, { type: "i128" });
   }
+
+  // Use u32 for small positive integers, i128 for larger numbers
+  if (value >= 0 && value <= 0xFFFFFFFF) {
+    return nativeToScVal(value, { type: "u32" });
+  }
+
+  return nativeToScVal(value, { type: "i128" });
+}
+
+function convertArgToScVal(value: unknown, key?: string): xdr.ScVal {
+  if (typeof value === "string") {
+    return convertStringToScVal(value, key);
+  }
+
+  if (typeof value === "number") {
+    return convertNumberToScVal(value);
+  }
+
   if (typeof value === "boolean") {
     return xdr.ScVal.scvBool(value);
   }
+
   if (value === null || value === undefined) {
     return xdr.ScVal.scvVoid();
   }
+
   return nativeToScVal(value);
 }
 

@@ -85,6 +85,24 @@ const CHUNK_PATTERN =
 const RENDER_PATTERN = /\{\{render\s+path="([^"]+)"\s*\}\}/g;
 
 /**
+ * Build a placeholder div HTML string for a progressive tag.
+ */
+function buildPlaceholderDiv(tag: ProgressiveTag, id: string): string {
+  const baseClass = "soroban-progressive-placeholder";
+
+  switch (tag.type) {
+    case "chunk":
+      return `<div class="${baseClass}" data-progressive-id="${id}" data-type="chunk" data-collection="${tag.collection}" data-index="${tag.index}">${tag.placeholder ?? ""}</div>`;
+
+    case "render":
+      return `<div class="${baseClass} soroban-render-continuation" data-progressive-id="${id}" data-type="render" data-path="${tag.path}"></div>`;
+
+    case "continue":
+      return `<div class="${baseClass}" data-progressive-id="${id}" data-type="continue" data-collection="${tag.collection}" data-from="${tag.from ?? 0}"></div>`;
+  }
+}
+
+/**
  * Parse content for continuation and chunk tags.
  *
  * @param content - The markdown content to parse
@@ -147,20 +165,7 @@ export function parseProgressiveTags(content: string): ParsedProgressiveContent 
   // Replace tags with placeholder divs (in reverse order to preserve positions)
   for (const tag of tags) {
     const id = createTagId(tag);
-    let placeholder: string;
-
-    if (tag.type === "chunk" && tag.placeholder) {
-      placeholder = `<div class="soroban-progressive-placeholder" data-progressive-id="${id}" data-type="chunk" data-collection="${tag.collection}" data-index="${tag.index}">${tag.placeholder}</div>`;
-    } else if (tag.type === "chunk") {
-      placeholder = `<div class="soroban-progressive-placeholder" data-progressive-id="${id}" data-type="chunk" data-collection="${tag.collection}" data-index="${tag.index}"></div>`;
-    } else if (tag.type === "render") {
-      // Render continuation tag - will trigger a new render() call
-      const renderTag = tag as RenderContinuationTag;
-      placeholder = `<div class="soroban-progressive-placeholder soroban-render-continuation" data-progressive-id="${id}" data-type="render" data-path="${renderTag.path}"></div>`;
-    } else {
-      // chunk continuation tag
-      placeholder = `<div class="soroban-progressive-placeholder" data-progressive-id="${id}" data-type="continue" data-collection="${tag.collection}" data-from="${(tag as ContinuationTag).from ?? 0}"></div>`;
-    }
+    const placeholder = buildPlaceholderDiv(tag, id);
 
     resultContent =
       resultContent.slice(0, tag.position) +

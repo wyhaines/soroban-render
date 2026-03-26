@@ -70,20 +70,9 @@ jobs:
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "contracts/hello -> target\ncontracts/todo -> target\ncontracts/theme -> target\ncontracts/chunked-example -> target\ncontracts/homepage -> target"
 
-      - name: Build hello contract
-        run: cargo build --release --target wasm32v1-none --manifest-path contracts/hello/Cargo.toml
+      - name: Build all contracts
+        run: cargo build --workspace --release --target wasm32v1-none
 
-      - name: Build theme contract
-        run: cargo build --release --target wasm32v1-none --manifest-path contracts/theme/Cargo.toml
-
-      - name: Build todo contract
-        run: cargo build --release --target wasm32v1-none --manifest-path contracts/todo/Cargo.toml
-
-      - name: Build chunked-example contract
-        run: cargo build --release --target wasm32v1-none --manifest-path contracts/chunked-example/Cargo.toml
-
-      - name: Build homepage contract
-        run: cargo build --release --target wasm32v1-none --manifest-path contracts/homepage/Cargo.toml
+      - name: Run contract tests
+        run: cargo test --workspace

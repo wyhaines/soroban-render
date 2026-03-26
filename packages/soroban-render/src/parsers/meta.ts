@@ -94,45 +94,49 @@ export function hasMetaTags(content: string): boolean {
 }
 
 /**
+ * Get or create a meta element with the given name.
+ */
+function getOrCreateMeta(name: string): HTMLMetaElement {
+  let element = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement | null;
+  if (!element) {
+    element = document.createElement("meta");
+    element.name = name;
+    document.head.appendChild(element);
+  }
+  return element;
+}
+
+/**
+ * Get or create the favicon link element.
+ */
+function getOrCreateFaviconLink(): HTMLLinkElement {
+  let element = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
+  if (!element) {
+    element = document.createElement("link");
+    element.rel = "icon";
+    document.head.appendChild(element);
+  }
+  return element;
+}
+
+/**
  * Apply extracted meta tags to the document.
  * Updates favicon, title, theme-color, etc.
  */
 export function applyMetaToDocument(meta: Record<string, string>): void {
-  // Apply favicon
   if (meta.favicon) {
-    let faviconLink = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
-    if (!faviconLink) {
-      faviconLink = document.createElement("link");
-      faviconLink.rel = "icon";
-      document.head.appendChild(faviconLink);
-    }
-    faviconLink.href = meta.favicon;
+    getOrCreateFaviconLink().href = meta.favicon;
   }
 
-  // Apply title
   if (meta.title) {
     document.title = meta.title;
   }
 
-  // Apply theme-color
   if (meta["theme-color"]) {
-    let themeColorMeta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
-    if (!themeColorMeta) {
-      themeColorMeta = document.createElement("meta");
-      themeColorMeta.name = "theme-color";
-      document.head.appendChild(themeColorMeta);
-    }
-    themeColorMeta.content = meta["theme-color"];
+    getOrCreateMeta("theme-color").content = meta["theme-color"];
   }
 
-  // Apply description
   if (meta.description) {
-    let descMeta = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
-    if (!descMeta) {
-      descMeta = document.createElement("meta");
-      descMeta.name = "description";
-      document.head.appendChild(descMeta);
-    }
-    descMeta.content = meta.description;
+    getOrCreateMeta("description").content = meta.description;
   }
 }

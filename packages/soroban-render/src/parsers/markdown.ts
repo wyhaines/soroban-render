@@ -169,10 +169,6 @@ export async function parseMarkdown(markdown: string): Promise<string> {
     }
   });
 
-  // Debug: log hidden inputs before sanitization
-  const hiddenInputsBefore = html.match(/<input[^>]*type="hidden"[^>]*>/g) || [];
-  console.log("[soroban-render] Hidden inputs BEFORE DOMPurify:", hiddenInputsBefore);
-
   try {
     const sanitized = DOMPurify.sanitize(html, {
       ALLOWED_TAGS: [
@@ -200,10 +196,6 @@ export async function parseMarkdown(markdown: string): Promise<string> {
       FORBID_TAGS: ["script", "style", "iframe", "form"],
       ALLOW_UNKNOWN_PROTOCOLS: true,
     });
-
-    // Debug: log hidden inputs after sanitization
-    const hiddenInputsAfter = sanitized.match(/<input[^>]*type="hidden"[^>]*>/g) || [];
-    console.log("[soroban-render] Hidden inputs AFTER DOMPurify:", hiddenInputsAfter);
 
     return sanitized;
   } finally {
